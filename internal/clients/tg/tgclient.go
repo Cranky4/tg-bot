@@ -14,6 +14,7 @@ type TokenGetter interface {
 
 type Client struct {
 	client *tgbotapi.BotAPI
+	mode   ClientMode
 }
 
 func New(tokenGetter TokenGetter) (*Client, error) {
@@ -24,6 +25,7 @@ func New(tokenGetter TokenGetter) (*Client, error) {
 
 	return &Client{
 		client: client,
+		mode:   DefaultMode,
 	}, nil
 }
 
@@ -56,4 +58,17 @@ func (c *Client) ListenUpdates(msgModel *messages.Model) {
 			}
 		}
 	}
+}
+
+type ClientMode int64
+
+const (
+	DefaultMode ClientMode = iota
+	AddExpenseAmountMode
+	AddExpenseCategoryMode
+	AddExpenseDatetimeMode
+)
+
+func (c *Client) SetMode(m ClientMode) {
+	c.mode = m
 }
