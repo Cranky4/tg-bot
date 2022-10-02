@@ -8,7 +8,6 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	expenses "gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
 )
 
 // MockMessageSender is a mock of MessageSender interface.
@@ -46,55 +45,4 @@ func (m *MockMessageSender) SendMessage(text string, userID int64) error {
 func (mr *MockMessageSenderMockRecorder) SendMessage(text, userID interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendMessage", reflect.TypeOf((*MockMessageSender)(nil).SendMessage), text, userID)
-}
-
-// MockStorage is a mock of Storage interface.
-type MockStorage struct {
-	ctrl     *gomock.Controller
-	recorder *MockStorageMockRecorder
-}
-
-// MockStorageMockRecorder is the mock recorder for MockStorage.
-type MockStorageMockRecorder struct {
-	mock *MockStorage
-}
-
-// NewMockStorage creates a new mock instance.
-func NewMockStorage(ctrl *gomock.Controller) *MockStorage {
-	mock := &MockStorage{ctrl: ctrl}
-	mock.recorder = &MockStorageMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockStorage) EXPECT() *MockStorageMockRecorder {
-	return m.recorder
-}
-
-// Add mocks base method.
-func (m *MockStorage) Add(expense expenses.Expense) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Add", expense)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Add indicates an expected call of Add.
-func (mr *MockStorageMockRecorder) Add(expense interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockStorage)(nil).Add), expense)
-}
-
-// GetExpenses mocks base method.
-func (m *MockStorage) GetExpenses(expense expenses.ExpensePeriod) []*expenses.Expense {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetExpenses", expense)
-	ret0, _ := ret[0].([]*expenses.Expense)
-	return ret0
-}
-
-// GetExpenses indicates an expected call of GetExpenses.
-func (mr *MockStorageMockRecorder) GetExpenses(expense interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExpenses", reflect.TypeOf((*MockStorage)(nil).GetExpenses), expense)
 }

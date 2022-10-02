@@ -7,34 +7,32 @@ import (
 )
 
 type Storage interface {
-	Add(expenses.Expense) error
-	GetExpenses(expenses.ExpensePeriod) []expenses.Expense
+	Add(expense expenses.Expense) error
+	GetExpenses(period expenses.ExpensePeriod) []*expenses.Expense
 }
 
-type MemoryStorage struct {
+type memoryStorage struct {
 	expenses []expenses.Expense
 }
 
-func NewMemoryStorage() *MemoryStorage {
-	return &MemoryStorage{
-		expenses: make([]expenses.Expense, 0),
-	}
+func NewMemoryStorage() Storage {
+	return &memoryStorage{}
 }
 
-func (s *MemoryStorage) Add(ex expenses.Expense) error {
-	s.expenses = append(s.expenses, ex)
+func (m *memoryStorage) Add(ex expenses.Expense) error {
+	m.expenses = append(m.expenses, ex)
 
 	return nil
 }
 
-func (s *MemoryStorage) GetExpenses(p expenses.ExpensePeriod) []*expenses.Expense {
-	exps := make([]*expenses.Expense, 0, len(s.expenses))
+func (m *memoryStorage) GetExpenses(p expenses.ExpensePeriod) []*expenses.Expense {
+	exps := make([]*expenses.Expense, 0, len(m.expenses))
 
 	periodStart := p.GetStart(time.Now())
 
-	for _, ex := range s.expenses {
-		if ex.Datetime.After(periodStart) {
-			exps = append(exps, &ex)
+	for i := 0; i < len(m.expenses); i++ {
+		if m.expenses[i].Datetime.After(periodStart) {
+			exps = append(exps, &m.expenses[i])
 		}
 	}
 

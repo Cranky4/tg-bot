@@ -1,21 +1,15 @@
 package messages
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/storage"
 )
-
-type MsgError struct {
-	message string
-}
-
-func (e MsgError) Error() string {
-	return e.message
-}
 
 const (
 	errAddExpenseInvalidParameterMessage         string = "Неверное количество параметров.\nОжидается: Сумма;Категория;Дата \nНапример: 120.50;Дом;2022-10-01 13:25:23"
@@ -28,23 +22,22 @@ const (
 	msgExpenseAdded string = "Трата %.02fр добавлена в категорию %s с датой %s"
 
 	datetimeFormat string = "2006-01-02 15:04:05"
+
+	startCommand       = "start"
+	addExpenseCommand  = "addExpense"
+	getExpensesCommand = "getExpenses"
 )
 
 type MessageSender interface {
 	SendMessage(text string, userID int64) error
 }
 
-type Storage interface {
-	Add(expense expenses.Expense) error
-	GetExpenses(expense expenses.ExpensePeriod) []*expenses.Expense
-}
-
 type Model struct {
 	tgClient MessageSender
-	storage  Storage
+	storage  storage.Storage
 }
 
-func New(tgClient MessageSender, storage Storage) *Model {
+func New(tgClient MessageSender, storage storage.Storage) *Model {
 	return &Model{
 		tgClient: tgClient,
 		storage:  storage,
@@ -52,26 +45,22 @@ func New(tgClient MessageSender, storage Storage) *Model {
 }
 
 type Message struct {
-	Command, CommandArguments, Text string
-	UserID                          int64
+	Command,
+	CommandArguments,
+	Text string
+	UserID int64
 }
-
-const (
-	StartCommand       string = "start"
-	AddExpenseCommand  string = "addExpense"
-	GetExpensesCommand string = "getExpenses"
-)
 
 func (m *Model) IncomingMessage(msg Message) error {
 	response := "не знаю эту команду"
 	var err error
 
 	switch msg.Command {
-	case StartCommand:
+	case startCommand:
 		response = "hello"
-	case AddExpenseCommand:
+	case addExpenseCommand:
 		response, err = m.addExpense(msg)
-	case GetExpensesCommand:
+	case getExpensesCommand:
 		response, err = m.getExpenses(msg)
 	}
 
@@ -82,44 +71,40 @@ func (m *Model) IncomingMessage(msg Message) error {
 	return m.tgClient.SendMessage(response, msg.UserID)
 }
 
-func (s *Model) addExpense(msg Message) (responseMsg string, err error) {
+func (m *Model) addExpense(msg Message) (string, error) {
 	parts := strings.Split(msg.CommandArguments, ";")
+	var responseMsg string
 
 	if len(parts) != 3 {
-		err = MsgError{message: errAddExpenseInvalidParameterMessage}
-		return
+		return responseMsg, errors.New(errAddExpenseInvalidParameterMessage)
 	}
 
 	trimmedAmount := strings.Trim(parts[0], " ")
 	amount, err := strconv.ParseFloat(trimmedAmount, 32)
 	if err != nil {
-		err = MsgError{message: fmt.Sprintf(errAddExpenseInvalidAmountParameterMessage, trimmedAmount)}
-		return
+		return responseMsg, fmt.Errorf(errAddExpenseInvalidAmountParameterMessage, trimmedAmount)
 	}
 
 	trimmedDatetime := strings.Trim(parts[2], " ")
 	datetime, err := time.Parse(datetimeFormat, trimmedDatetime)
 	if err != nil {
-		err = MsgError{message: fmt.Sprintf(errAddExpenseInvalidDatetimeParameterMessage, trimmedDatetime)}
-		return
+		return responseMsg, fmt.Errorf(errAddExpenseInvalidDatetimeParameterMessage, trimmedDatetime)
 	}
 
 	trimmedCategory := strings.Trim(parts[1], " ")
-	err = s.storage.Add(expenses.Expense{
+	err = m.storage.Add(expenses.Expense{
 		Amount:   int(float32(amount) * 100),
 		Category: trimmedCategory,
 		Datetime: datetime,
 	})
 	if err != nil {
-		err = MsgError{message: errSaveExpenseMessage}
-		return
+		return responseMsg, errors.New(errSaveExpenseMessage)
 	}
 
-	responseMsg = fmt.Sprintf(msgExpenseAdded, amount, trimmedCategory, trimmedDatetime)
-	return
+	return fmt.Sprintf(msgExpenseAdded, amount, trimmedCategory, trimmedDatetime), nil
 }
 
-func (s *Model) getExpenses(msg Message) (responseMsg string, err error) {
+func (m *Model) getExpenses(msg Message) (string, error) {
 	var expPeriod expenses.ExpensePeriod
 
 	switch msg.CommandArguments {
@@ -131,13 +116,12 @@ func (s *Model) getExpenses(msg Message) (responseMsg string, err error) {
 		expPeriod = expenses.Year
 	default:
 		if msg.CommandArguments != "" {
-			err = MsgError{message: errGetExpensesInvalidPeriodMessage}
-			return
+			return "", errors.New(errGetExpensesInvalidPeriodMessage)
 		}
 		expPeriod = expenses.Week
 	}
 
-	expenses := s.storage.GetExpenses(expPeriod)
+	expenses := m.storage.GetExpenses(expPeriod)
 
 	result := make(map[string]int) // [категория]сумма
 
@@ -147,7 +131,7 @@ func (s *Model) getExpenses(msg Message) (responseMsg string, err error) {
 
 	var reporter strings.Builder
 	reporter.WriteString(
-		fmt.Sprintf("%s бюджет:\n", expPeriod),
+		fmt.Sprintf("%s бюджет:\n", &expPeriod),
 	)
 	defer reporter.Reset()
 
@@ -156,11 +140,10 @@ func (s *Model) getExpenses(msg Message) (responseMsg string, err error) {
 	}
 
 	for category, amount := range result {
-		reporter.WriteString(
-			fmt.Sprintf("%s - %.02fр\n", category, float32(amount)/100),
-		)
+		if _, err := reporter.WriteString(fmt.Sprintf("%s - %.02fр\n", category, float32(amount)/100)); err != nil {
+			return "", err
+		}
 	}
 
-	responseMsg = reporter.String()
-	return
+	return reporter.String(), nil
 }

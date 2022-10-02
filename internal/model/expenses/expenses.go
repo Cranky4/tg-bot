@@ -18,8 +18,8 @@ const (
 	Year
 )
 
-func (p ExpensePeriod) String() string {
-	switch p {
+func (p *ExpensePeriod) String() string {
+	switch *p {
 	default:
 		return "Недельный"
 	case Week:
@@ -31,8 +31,8 @@ func (p ExpensePeriod) String() string {
 	}
 }
 
-func (p ExpensePeriod) GetStart(time time.Time) time.Time {
-	switch p {
+func (p *ExpensePeriod) GetStart(time time.Time) time.Time {
+	switch *p {
 	default:
 		return time.AddDate(0, 0, -7)
 	case Week:
