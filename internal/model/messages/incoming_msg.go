@@ -76,7 +76,7 @@ func (m *Model) IncomingMessage(msg Message) error {
 	}
 
 	if err != nil {
-		return m.tgClient.SendMessage(err.Error(), msg.UserID)
+		response = err.Error()
 	}
 
 	return m.tgClient.SendMessage(response, msg.UserID)
