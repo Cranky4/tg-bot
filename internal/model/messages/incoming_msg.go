@@ -9,13 +9,34 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
 )
 
+type MsgError struct {
+	message string
+}
+
+func (e MsgError) Error() string {
+	return e.message
+}
+
+const (
+	errAddExpenseInvalidParameterMessage         string = "Неверное количество параметров.\nОжидается: Сумма;Категория;Дата \nНапример: 120.50;Дом;2022-10-01 13:25:23"
+	errAddExpenseInvalidAmountParameterMessage   string = "Неверное значение суммы: %v"
+	errAddExpenseInvalidDatetimeParameterMessage string = "Неверный формат даты и времени: %v. Ожидается 2022-01-28 15:10:11"
+	errSaveExpenseMessage                        string = "Ошибка сохранения траты"
+
+	errGetExpensesInvalidPeriodMessage string = "Неверный период. Ожидается: year, month, week. По-умолчанию week"
+
+	msgExpenseAdded string = "Трата %.02fр добавлена в категорию %s с датой %s"
+
+	datetimeFormat string = "2006-01-02 15:04:05"
+)
+
 type MessageSender interface {
 	SendMessage(text string, userID int64) error
 }
 
 type Storage interface {
-	Add(expenses.Expense) error
-	GetExpenses(expenses.ExpensePeriod) []expenses.Expense
+	Add(expense expenses.Expense) error
+	GetExpenses(expense expenses.ExpensePeriod) []*expenses.Expense
 }
 
 type Model struct {
@@ -31,74 +52,56 @@ func New(tgClient MessageSender, storage Storage) *Model {
 }
 
 type Message struct {
-	Text   string
-	UserID int64
+	Command, CommandArguments, Text string
+	UserID                          int64
 }
-
-type Command int64
 
 const (
-	Start Command = iota
-	AddExpense
-	GetExpenses
+	StartCommand       string = "start"
+	AddExpenseCommand  string = "addExpense"
+	GetExpensesCommand string = "getExpenses"
 )
 
-func (c Command) Route() string {
-	switch c {
-	case Start:
-		return "/start"
-	case AddExpense:
-		return "/add-expense"
-	case GetExpenses:
-		return "/get-expenses"
+func (m *Model) IncomingMessage(msg Message) error {
+	response := "не знаю эту команду"
+	var err error
+
+	switch msg.Command {
+	case StartCommand:
+		response = "hello"
+	case AddExpenseCommand:
+		response, err = m.addExpense(msg)
+	case GetExpensesCommand:
+		response, err = m.getExpenses(msg)
 	}
 
-	return ""
+	if err != nil {
+		return m.tgClient.SendMessage(err.Error(), msg.UserID)
+	}
+
+	return m.tgClient.SendMessage(response, msg.UserID)
 }
 
-func (s *Model) IncomingMessage(msg Message) error {
-	parts := strings.SplitN(msg.Text, " ", 2)
-	command := parts[0]
-
-	var data string
-	if len(parts) > 1 {
-		data = parts[1]
-	}
-
-	switch command {
-	case Start.Route():
-		return s.tgClient.SendMessage("hello", msg.UserID)
-	case AddExpense.Route():
-		return s.addExpense(data, msg)
-	case GetExpenses.Route():
-		return s.getExpenses(data, msg)
-	}
-
-	return s.tgClient.SendMessage("не знаю эту команду", msg.UserID)
-}
-
-func (s *Model) addExpense(data string, msg Message) error {
-	parts := strings.Split(data, ";")
+func (s *Model) addExpense(msg Message) (responseMsg string, err error) {
+	parts := strings.Split(msg.CommandArguments, ";")
 
 	if len(parts) != 3 {
-		return s.tgClient.SendMessage(
-			"Неверное количество параметров.\nОжидается: Сумма;Категория;Дата \nНапример: 120.50;Дом;2022-10-01 13:25:23",
-			msg.UserID,
-		)
+		err = MsgError{message: errAddExpenseInvalidParameterMessage}
+		return
 	}
 
 	trimmedAmount := strings.Trim(parts[0], " ")
 	amount, err := strconv.ParseFloat(trimmedAmount, 32)
 	if err != nil {
-		return s.tgClient.SendMessage(
-			fmt.Sprintf("Неверное значение суммы: %v", trimmedAmount), msg.UserID)
+		err = MsgError{message: fmt.Sprintf(errAddExpenseInvalidAmountParameterMessage, trimmedAmount)}
+		return
 	}
 
-	timmedDatetime := strings.Trim(parts[2], " ")
-	datetime, err := time.Parse("2006-01-02 15:04:05", timmedDatetime)
+	trimmedDatetime := strings.Trim(parts[2], " ")
+	datetime, err := time.Parse(datetimeFormat, trimmedDatetime)
 	if err != nil {
-		return s.tgClient.SendMessage(
-			fmt.Sprintf("Неверный формат даты и времени: %v. Ожидается 2022-01-28 15:10:11", timmedDatetime), msg.UserID)
+		err = MsgError{message: fmt.Sprintf(errAddExpenseInvalidDatetimeParameterMessage, trimmedDatetime)}
+		return
 	}
 
 	trimmedCategory := strings.Trim(parts[1], " ")
@@ -108,19 +111,18 @@ func (s *Model) addExpense(data string, msg Message) error {
 		Datetime: datetime,
 	})
 	if err != nil {
-		return s.tgClient.SendMessage("Ошибка сохранения траты", msg.UserID)
+		err = MsgError{message: errSaveExpenseMessage}
+		return
 	}
 
-	return s.tgClient.SendMessage(
-		fmt.Sprintf("Трата %.02fр добавлена в категорию %s с датой %s", amount, trimmedCategory, timmedDatetime),
-		msg.UserID,
-	)
+	responseMsg = fmt.Sprintf(msgExpenseAdded, amount, trimmedCategory, trimmedDatetime)
+	return
 }
 
-func (s *Model) getExpenses(period string, msg Message) error {
+func (s *Model) getExpenses(msg Message) (responseMsg string, err error) {
 	var expPeriod expenses.ExpensePeriod
 
-	switch period {
+	switch msg.CommandArguments {
 	case "week":
 		expPeriod = expenses.Week
 	case "month":
@@ -128,25 +130,18 @@ func (s *Model) getExpenses(period string, msg Message) error {
 	case "year":
 		expPeriod = expenses.Year
 	default:
-		if period != "" {
-			return s.tgClient.SendMessage(
-				"Неверный период. Ожидается: year, month, week. По-умолчанию week",
-				msg.UserID,
-			)
+		if msg.CommandArguments != "" {
+			err = MsgError{message: errGetExpensesInvalidPeriodMessage}
+			return
 		}
 		expPeriod = expenses.Week
 	}
 
 	expenses := s.storage.GetExpenses(expPeriod)
 
-	result := make(map[string]int)
+	result := make(map[string]int) // [категория]сумма
 
 	for _, e := range expenses {
-		_, ok := result[e.Category]
-		if !ok {
-			result[e.Category] = 0
-		}
-
 		result[e.Category] += e.Amount
 	}
 
@@ -160,14 +155,12 @@ func (s *Model) getExpenses(period string, msg Message) error {
 		reporter.WriteString("пусто\n")
 	}
 
-	for cat, amount := range result {
+	for category, amount := range result {
 		reporter.WriteString(
-			fmt.Sprintf("%s - %.02fр\n", cat, float32(amount)/100),
+			fmt.Sprintf("%s - %.02fр\n", category, float32(amount)/100),
 		)
 	}
 
-	return s.tgClient.SendMessage(
-		reporter.String(),
-		msg.UserID,
-	)
+	responseMsg = reporter.String()
+	return
 }

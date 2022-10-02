@@ -72,29 +72,29 @@ func (m *MockStorage) EXPECT() *MockStorageMockRecorder {
 }
 
 // Add mocks base method.
-func (m *MockStorage) Add(arg0 expenses.Expense) error {
+func (m *MockStorage) Add(expense expenses.Expense) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Add", arg0)
+	ret := m.ctrl.Call(m, "Add", expense)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Add indicates an expected call of Add.
-func (mr *MockStorageMockRecorder) Add(arg0 interface{}) *gomock.Call {
+func (mr *MockStorageMockRecorder) Add(expense interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockStorage)(nil).Add), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockStorage)(nil).Add), expense)
 }
 
 // GetExpenses mocks base method.
-func (m *MockStorage) GetExpenses(arg0 expenses.ExpensePeriod) []expenses.Expense {
+func (m *MockStorage) GetExpenses(expense expenses.ExpensePeriod) []*expenses.Expense {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetExpenses", arg0)
-	ret0, _ := ret[0].([]expenses.Expense)
+	ret := m.ctrl.Call(m, "GetExpenses", expense)
+	ret0, _ := ret[0].([]*expenses.Expense)
 	return ret0
 }
 
 // GetExpenses indicates an expected call of GetExpenses.
-func (mr *MockStorageMockRecorder) GetExpenses(arg0 interface{}) *gomock.Call {
+func (mr *MockStorageMockRecorder) GetExpenses(expense interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExpenses", reflect.TypeOf((*MockStorage)(nil).GetExpenses), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExpenses", reflect.TypeOf((*MockStorage)(nil).GetExpenses), expense)
 }

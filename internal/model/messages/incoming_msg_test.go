@@ -10,7 +10,7 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
 )
 
-func Test_OnStartCommand_ShouldAnswerWithIntroMessage(t *testing.T) {
+func TestOnStartCommandShouldAnswerWithIntroMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sender := mocks.NewMockMessageSender(ctrl)
 	storage := mocks.NewMockStorage(ctrl)
@@ -19,14 +19,14 @@ func Test_OnStartCommand_ShouldAnswerWithIntroMessage(t *testing.T) {
 	sender.EXPECT().SendMessage("hello", int64(123))
 
 	err := model.IncomingMessage(Message{
-		Text:   "/start",
-		UserID: 123,
+		Command: StartCommand,
+		UserID:  123,
 	})
 
 	assert.NoError(t, err)
 }
 
-func Test_OnUnknownCommand_ShouldAnswerWithHelpMessage(t *testing.T) {
+func TestOnUnknownCommandShouldAnswerWithHelpMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	sender := mocks.NewMockMessageSender(ctrl)
@@ -42,7 +42,7 @@ func Test_OnUnknownCommand_ShouldAnswerWithHelpMessage(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func Test_OnAddExpense_ShouldAnswerWithSuccessMessage(t *testing.T) {
+func TestOnAddExpenseShouldAnswerWithSuccessMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	sender := mocks.NewMockMessageSender(ctrl)
@@ -60,14 +60,15 @@ func Test_OnAddExpense_ShouldAnswerWithSuccessMessage(t *testing.T) {
 	model := New(sender, storage)
 
 	err = model.IncomingMessage(Message{
-		Text:   "/add-expense 125.50; Кофе; 2022-10-01 12:56:00",
-		UserID: 123,
+		Command:          AddExpenseCommand,
+		CommandArguments: "125.50; Кофе; 2022-10-01 12:56:00",
+		UserID:           123,
 	})
 
 	assert.NoError(t, err)
 }
 
-func Test_OnAddExpense_ShouldAnswerWithFailMessage(t *testing.T) {
+func TestOnAddExpenseShouldAnswerWithFailMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	sender := mocks.NewMockMessageSender(ctrl)
@@ -79,14 +80,14 @@ func Test_OnAddExpense_ShouldAnswerWithFailMessage(t *testing.T) {
 	model := New(sender, storage)
 
 	err := model.IncomingMessage(Message{
-		Text:   "/add-expense",
-		UserID: 123,
+		Command: AddExpenseCommand,
+		UserID:  123,
 	})
 
 	assert.NoError(t, err)
 }
 
-func Test_OnGetExpense_ShouldAnswerWithEmptyMessage(t *testing.T) {
+func TestOnGetExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	sender := mocks.NewMockMessageSender(ctrl)
@@ -98,14 +99,14 @@ func Test_OnGetExpense_ShouldAnswerWithEmptyMessage(t *testing.T) {
 	model := New(sender, storage)
 
 	err := model.IncomingMessage(Message{
-		Text:   "/get-expenses",
-		UserID: 123,
+		Command: GetExpensesCommand,
+		UserID:  123,
 	})
 
 	assert.NoError(t, err)
 }
 
-func Test_OnGetExpense_ShouldAnswerWithFailMessage(t *testing.T) {
+func TestOnGetExpenseShouldAnswerWithFailMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	sender := mocks.NewMockMessageSender(ctrl)
@@ -116,8 +117,9 @@ func Test_OnGetExpense_ShouldAnswerWithFailMessage(t *testing.T) {
 	model := New(sender, storage)
 
 	err := model.IncomingMessage(Message{
-		Text:   "/get-expenses wrong",
-		UserID: 123,
+		Command:          GetExpensesCommand,
+		CommandArguments: "wrong",
+		UserID:           123,
 	})
 
 	assert.NoError(t, err)

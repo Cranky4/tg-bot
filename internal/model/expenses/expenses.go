@@ -31,15 +31,15 @@ func (p ExpensePeriod) String() string {
 	}
 }
 
-func (p ExpensePeriod) GetStart(now time.Time) time.Time {
+func (p ExpensePeriod) GetStart(time time.Time) time.Time {
 	switch p {
 	default:
-		return now.AddDate(0, 0, -7)
+		return time.AddDate(0, 0, -7)
 	case Week:
-		return now.AddDate(0, 0, -7)
+		return time.AddDate(0, 0, -7)
 	case Month:
-		return now.AddDate(0, -1, 0)
+		return time.AddDate(0, -1, 0)
 	case Year:
-		return now.AddDate(-1, 0, 0)
+		return time.AddDate(-1, 0, 0)
 	}
 }

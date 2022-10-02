@@ -8,7 +8,7 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
 )
 
-func Test_Storage_ShouldAddExpensesToStorage(t *testing.T) {
+func TestStorageShouldAddExpensesToStorage(t *testing.T) {
 	storage := NewMemoryStorage()
 
 	exps := storage.GetExpenses(expenses.Week)

@@ -27,14 +27,14 @@ func (s *MemoryStorage) Add(ex expenses.Expense) error {
 	return nil
 }
 
-func (s *MemoryStorage) GetExpenses(p expenses.ExpensePeriod) []expenses.Expense {
-	exps := make([]expenses.Expense, 0, len(s.expenses))
+func (s *MemoryStorage) GetExpenses(p expenses.ExpensePeriod) []*expenses.Expense {
+	exps := make([]*expenses.Expense, 0, len(s.expenses))
 
 	periodStart := p.GetStart(time.Now())
 
 	for _, ex := range s.expenses {
 		if ex.Datetime.After(periodStart) {
-			exps = append(exps, ex)
+			exps = append(exps, &ex)
 		}
 	}
 
