@@ -12,7 +12,7 @@ type Storage interface {
 }
 
 type memoryStorage struct {
-	expenses []expenses.Expense
+	expenses []*expenses.Expense
 }
 
 func NewMemoryStorage() Storage {
@@ -20,7 +20,7 @@ func NewMemoryStorage() Storage {
 }
 
 func (m *memoryStorage) Add(ex expenses.Expense) error {
-	m.expenses = append(m.expenses, ex)
+	m.expenses = append(m.expenses, &ex)
 
 	return nil
 }
@@ -32,7 +32,7 @@ func (m *memoryStorage) GetExpenses(p expenses.ExpensePeriod) []*expenses.Expens
 
 	for i := 0; i < len(m.expenses); i++ {
 		if m.expenses[i].Datetime.After(periodStart) {
-			exps = append(exps, &m.expenses[i])
+			exps = append(exps, m.expenses[i])
 		}
 	}
 

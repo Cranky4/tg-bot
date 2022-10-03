@@ -12,16 +12,16 @@ import (
 )
 
 const (
-	errAddExpenseInvalidParameterMessage         string = "Неверное количество параметров.\nОжидается: Сумма;Категория;Дата \nНапример: 120.50;Дом;2022-10-01 13:25:23"
-	errAddExpenseInvalidAmountParameterMessage   string = "Неверное значение суммы: %v"
-	errAddExpenseInvalidDatetimeParameterMessage string = "Неверный формат даты и времени: %v. Ожидается 2022-01-28 15:10:11"
-	errSaveExpenseMessage                        string = "Ошибка сохранения траты"
+	errAddExpenseInvalidParameterMessage         = "Неверное количество параметров.\nОжидается: Сумма;Категория;Дата \nНапример: 120.50;Дом;2022-10-01 13:25:23"
+	errAddExpenseInvalidAmountParameterMessage   = "Неверное значение суммы: %v"
+	errAddExpenseInvalidDatetimeParameterMessage = "Неверный формат даты и времени: %v. Ожидается 2022-01-28 15:10:11"
+	errSaveExpenseMessage                        = "Ошибка сохранения траты"
 
-	errGetExpensesInvalidPeriodMessage string = "Неверный период. Ожидается: year, month, week. По-умолчанию week"
+	errGetExpensesInvalidPeriodMessage = "Неверный период. Ожидается: year, month, week. По-умолчанию week"
 
-	msgExpenseAdded string = "Трата %.02fр добавлена в категорию %s с датой %s"
+	msgExpenseAdded = "Трата %.02fр добавлена в категорию %s с датой %s"
 
-	datetimeFormat string = "2006-01-02 15:04:05"
+	datetimeFormat = "2006-01-02 15:04:05"
 
 	startCommand       = "start"
 	addExpenseCommand  = "addExpense"
@@ -45,10 +45,10 @@ func New(tgClient MessageSender, storage storage.Storage) *Model {
 }
 
 type Message struct {
-	Command,
-	CommandArguments,
-	Text string
-	UserID int64
+	Command          string
+	CommandArguments string
+	Text             string
+	UserID           int64
 }
 
 func (m *Model) IncomingMessage(msg Message) error {
