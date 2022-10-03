@@ -48,8 +48,10 @@ func (c *Client) ListenUpdates(msgModel *messages.Model) {
 			log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 
 			err := msgModel.IncomingMessage(messages.Message{
-				Text:   update.Message.Text,
-				UserID: update.Message.From.ID,
+				Text:             update.Message.Text,
+				UserID:           update.Message.From.ID,
+				Command:          update.Message.Command(),
+				CommandArguments: update.Message.CommandArguments(),
 			})
 			if err != nil {
 				log.Println("error processing message:", err)
