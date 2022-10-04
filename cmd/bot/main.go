@@ -37,6 +37,7 @@ func main() {
 		defer wg.Done()
 		if err := converter.Load(ctx); err != nil {
 			log.Println("exchange load err:", err)
+			return
 		}
 		log.Println("loaded")
 	}()
