@@ -8,16 +8,25 @@ import (
 	"github.com/stretchr/testify/assert"
 	msgmocks "gitlab.ozon.dev/cranky4/tg-bot/internal/mocks/messages"
 	storagemocks "gitlab.ozon.dev/cranky4/tg-bot/internal/mocks/storage"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
 )
+
+var testConverter = &converter.ExchConverter{
+	Rates: &converter.Rates{
+		USD: 2,
+		EUR: 3,
+		CNY: 4,
+	},
+}
 
 func TestOnStartCommandShouldAnswerWithIntroMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	storage := storagemocks.NewMockStorage(ctrl)
-	model := New(sender, storage)
+	model := New(sender, storage, testConverter)
 
-	sender.EXPECT().SendMessage("hello", int64(123))
+	sender.EXPECT().SendMessage("hello", int64(123), mainMenu)
 
 	err := model.IncomingMessage(Message{
 		Command: startCommand,
@@ -31,9 +40,9 @@ func TestOnUnknownCommandShouldAnswerWithHelpMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
-	sender.EXPECT().SendMessage("не знаю эту команду", int64(123))
+	sender.EXPECT().SendMessage("не знаю эту команду", int64(123), mainMenu)
 	storage := storagemocks.NewMockStorage(ctrl)
-	model := New(sender, storage)
+	model := New(sender, storage, testConverter)
 
 	err := model.IncomingMessage(Message{
 		Text:   "some text",
@@ -47,7 +56,8 @@ func TestOnAddExpenseShouldAnswerWithSuccessMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
-	sender.EXPECT().SendMessage("Трата 125.50р добавлена в категорию Кофе с датой 2022-10-01 12:56:00", int64(123))
+	sender.EXPECT().SendMessage("Трата 125.50 RUB добавлена в категорию Кофе с датой 2022-10-01 12:56:00",
+		int64(123), mainMenu)
 
 	storage := storagemocks.NewMockStorage(ctrl)
 	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
@@ -58,7 +68,8 @@ func TestOnAddExpenseShouldAnswerWithSuccessMessage(t *testing.T) {
 		Category: "Кофе",
 		Datetime: date,
 	})
-	model := New(sender, storage)
+
+	model := New(sender, storage, testConverter)
 
 	err = model.IncomingMessage(Message{
 		Command:          addExpenseCommand,
@@ -73,12 +84,12 @@ func TestOnAddExpenseShouldAnswerWithFailMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
-	sender.EXPECT().SendMessage("Неверное количество параметров.\n"+
+	sender.EXPECT().SendMessage("неверное количество параметров.\n"+
 		"Ожидается: Сумма;Категория;Дата \n"+
-		"Например: 120.50;Дом;2022-10-01 13:25:23", int64(123))
+		"Например: 120.50;Дом;2022-10-01 13:25:23", int64(123), mainMenu)
 
 	storage := storagemocks.NewMockStorage(ctrl)
-	model := New(sender, storage)
+	model := New(sender, storage, testConverter)
 
 	err := model.IncomingMessage(Message{
 		Command: addExpenseCommand,
@@ -92,12 +103,12 @@ func TestOnGetExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
-	sender.EXPECT().SendMessage("Недельный бюджет:\nпусто\n", int64(123))
+	sender.EXPECT().SendMessage("Недельный бюджет:\nпусто\n", int64(123), mainMenu)
 
 	storage := storagemocks.NewMockStorage(ctrl)
 	storage.EXPECT().GetExpenses(expenses.Week)
 
-	model := New(sender, storage)
+	model := New(sender, storage, testConverter)
 
 	err := model.IncomingMessage(Message{
 		Command: getExpensesCommand,
@@ -111,11 +122,11 @@ func TestOnGetExpenseShouldAnswerWithFailMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
-	sender.EXPECT().SendMessage("Неверный период. Ожидается: year, month, week. По-умолчанию week", int64(123))
+	sender.EXPECT().SendMessage("неверный период. Ожидается: year, month, week. По-умолчанию week", int64(123), mainMenu)
 
 	storage := storagemocks.NewMockStorage(ctrl)
 
-	model := New(sender, storage)
+	model := New(sender, storage, testConverter)
 
 	err := model.IncomingMessage(Message{
 		Command:          getExpensesCommand,

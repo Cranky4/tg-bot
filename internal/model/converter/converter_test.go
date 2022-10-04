@@ -1,0 +1,37 @@
+package converter
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestConverterShouldCorrectConvertToRUB(t *testing.T) {
+	converter := ExchConverter{
+		Rates: &Rates{
+			CNY: 2,
+			USD: 3,
+			EUR: 4,
+		},
+	}
+
+	assert.Equal(t, 100.00, converter.ToRUB(100, RUB))
+	assert.Equal(t, 100.00, converter.ToRUB(200, CNY))
+	assert.Equal(t, 100.00, converter.ToRUB(300, USD))
+	assert.Equal(t, 100.00, converter.ToRUB(400, EUR))
+}
+
+func TestConverterShouldCorrectConvertFromRUB(t *testing.T) {
+	converter := ExchConverter{
+		Rates: &Rates{
+			CNY: 2,
+			USD: 3,
+			EUR: 4,
+		},
+	}
+
+	assert.Equal(t, 100.00, converter.FromRUB(100, RUB))
+	assert.Equal(t, 200.00, converter.FromRUB(100, CNY))
+	assert.Equal(t, 300.00, converter.FromRUB(100, USD))
+	assert.Equal(t, 400.00, converter.FromRUB(100, EUR))
+}

@@ -7,40 +7,54 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/storage"
 )
 
 const (
-	errAddExpenseInvalidParameterMessage         = "Неверное количество параметров.\nОжидается: Сумма;Категория;Дата \nНапример: 120.50;Дом;2022-10-01 13:25:23"
-	errAddExpenseInvalidAmountParameterMessage   = "Неверное значение суммы: %v"
-	errAddExpenseInvalidDatetimeParameterMessage = "Неверный формат даты и времени: %v. Ожидается 2022-01-28 15:10:11"
-	errSaveExpenseMessage                        = "Ошибка сохранения траты"
+	errAddExpenseInvalidParameterMessage = "неверное количество параметров.\nОжидается: Сумма;Категория;Дата \n" +
+		"Например: 120.50;Дом;2022-10-01 13:25:23"
+	errAddExpenseInvalidAmountParameterMessage   = "неверное значение суммы: %v"
+	errAddExpenseInvalidDatetimeParameterMessage = "неверный формат даты и времени: %v. Ожидается 2022-01-28 15:10:11"
+	errSaveExpenseMessage                        = "ошибка сохранения траты"
 
-	errGetExpensesInvalidPeriodMessage = "Неверный период. Ожидается: year, month, week. По-умолчанию week"
+	errGetExpensesInvalidPeriodMessage = "неверный период. Ожидается: year, month, week. По-умолчанию week"
 
-	msgExpenseAdded = "Трата %.02fр добавлена в категорию %s с датой %s"
+	msgExpenseAdded = "Трата %.02f %s добавлена в категорию %s с датой %s"
 
 	datetimeFormat = "2006-01-02 15:04:05"
 
-	startCommand       = "start"
-	addExpenseCommand  = "addExpense"
-	getExpensesCommand = "getExpenses"
+	startCommand                 = "start"
+	addExpenseCommand            = "addExpense"
+	getExpensesCommand           = "getExpenses"
+	requestCurrencyChangeCommand = "requestCurrencyChange"
+	setCurrencyCommand           = "setCurrency"
 )
 
+var mainMenu = []string{
+	"/" + addExpenseCommand,
+	"/" + getExpensesCommand,
+	"/" + requestCurrencyChangeCommand,
+}
+
 type MessageSender interface {
-	SendMessage(text string, userID int64) error
+	SendMessage(text string, userID int64, buttons []string) error
 }
 
 type Model struct {
-	tgClient MessageSender
-	storage  storage.Storage
+	tgClient  MessageSender
+	storage   storage.Storage
+	converter *converter.Converter
+	currency  converter.Currency
 }
 
-func New(tgClient MessageSender, storage storage.Storage) *Model {
+func New(tgClient MessageSender, storage storage.Storage, conv converter.Converter) *Model {
 	return &Model{
-		tgClient: tgClient,
-		storage:  storage,
+		tgClient:  tgClient,
+		storage:   storage,
+		converter: &conv,
+		currency:  converter.RUB,
 	}
 }
 
@@ -54,6 +68,7 @@ type Message struct {
 func (m *Model) IncomingMessage(msg Message) error {
 	response := "не знаю эту команду"
 	var err error
+	btns := mainMenu
 
 	switch msg.Command {
 	case startCommand:
@@ -62,13 +77,17 @@ func (m *Model) IncomingMessage(msg Message) error {
 		response, err = m.addExpense(msg)
 	case getExpensesCommand:
 		response, err = m.getExpenses(msg)
+	case requestCurrencyChangeCommand:
+		response, btns = m.requestCurrencyChange(msg)
+	case setCurrencyCommand:
+		response, err = m.setCurrency(msg)
 	}
 
 	if err != nil {
 		response = err.Error()
 	}
 
-	return m.tgClient.SendMessage(response, msg.UserID)
+	return m.tgClient.SendMessage(response, msg.UserID, btns)
 }
 
 func (m *Model) addExpense(msg Message) (string, error) {
@@ -91,9 +110,11 @@ func (m *Model) addExpense(msg Message) (string, error) {
 		return responseMsg, fmt.Errorf(errAddExpenseInvalidDatetimeParameterMessage, trimmedDatetime)
 	}
 
+	convertedAmount := (*m.converter).ToRUB(amount, m.currency)
+
 	trimmedCategory := strings.Trim(parts[1], " ")
 	err = m.storage.Add(expenses.Expense{
-		Amount:   int(float32(amount) * 100),
+		Amount:   int(convertedAmount * 100),
 		Category: trimmedCategory,
 		Datetime: datetime,
 	})
@@ -101,7 +122,7 @@ func (m *Model) addExpense(msg Message) (string, error) {
 		return responseMsg, errors.New(errSaveExpenseMessage)
 	}
 
-	return fmt.Sprintf(msgExpenseAdded, amount, trimmedCategory, trimmedDatetime), nil
+	return fmt.Sprintf(msgExpenseAdded, amount, m.currency, trimmedCategory, trimmedDatetime), nil
 }
 
 func (m *Model) getExpenses(msg Message) (string, error) {
@@ -140,10 +161,40 @@ func (m *Model) getExpenses(msg Message) (string, error) {
 	}
 
 	for category, amount := range result {
-		if _, err := reporter.WriteString(fmt.Sprintf("%s - %.02fр\n", category, float32(amount)/100)); err != nil {
+		converted := (*m.converter).FromRUB(float64(amount), m.currency)
+
+		if _, err := reporter.WriteString(fmt.Sprintf("%s - %.02f %s\n", category, converted/100, m.currency)); err != nil {
 			return "", err
 		}
 	}
 
 	return reporter.String(), nil
+}
+
+func (m *Model) requestCurrencyChange(msg Message) (string, []string) {
+	return "Выберите валюту", []string{
+		"/setCurrency USD",
+		"/setCurrency CNY",
+		"/setCurrency EUR",
+		"/setCurrency RUB",
+	}
+}
+
+func (m *Model) setCurrency(msg Message) (string, error) {
+	var curFound bool
+	for _, c := range converter.AvailableCurrencies {
+		if msg.CommandArguments == string(c) {
+			curFound = true
+			break
+		}
+	}
+
+	if !curFound {
+		return "", fmt.Errorf("неизвестная валюта %s. Доступные валюты: %v",
+			msg.CommandArguments, converter.AvailableCurrencies)
+	}
+
+	m.currency = converter.Currency(msg.CommandArguments)
+
+	return fmt.Sprintf("Установлена валюта в %s", msg.CommandArguments), nil
 }

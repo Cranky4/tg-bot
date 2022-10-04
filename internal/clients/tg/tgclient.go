@@ -1,6 +1,7 @@
 package tg
 
 import (
+	"context"
 	"log"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -22,20 +23,30 @@ func New(tokenGetter TokenGetter) (*Client, error) {
 		return nil, errors.Wrap(err, "NewBotAPI")
 	}
 
-	return &Client{
-		client: client,
-	}, nil
+	return &Client{client: client}, nil
 }
 
-func (c *Client) SendMessage(text string, userID int64) error {
-	_, err := c.client.Send(tgbotapi.NewMessage(userID, text))
-	if err != nil {
+func (c *Client) SendMessage(text string, userID int64, buttons []string) error {
+	msg := tgbotapi.NewMessage(userID, text)
+	msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+	if buttons != nil {
+		btns := make([][]tgbotapi.KeyboardButton, 0, len(buttons))
+		for _, b := range buttons {
+			btns = append(btns, []tgbotapi.KeyboardButton{tgbotapi.NewKeyboardButton(b)})
+		}
+
+		keyboard := tgbotapi.NewReplyKeyboard(btns...)
+		msg.ReplyMarkup = keyboard
+	}
+
+	if _, err := c.client.Send(msg); err != nil {
 		return errors.Wrap(err, "client.Send")
 	}
 	return nil
 }
 
-func (c *Client) ListenUpdates(msgModel *messages.Model) {
+func (c *Client) ListenUpdates(ctx context.Context, msgModel *messages.Model) {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
@@ -43,18 +54,24 @@ func (c *Client) ListenUpdates(msgModel *messages.Model) {
 
 	log.Println("listening for messages")
 
-	for update := range updates {
-		if update.Message != nil { // If we got a message
-			log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+	for {
+		select {
+		case <-ctx.Done():
+			log.Println("stoped listening for messages")
+			return
+		case update := <-updates:
+			if update.Message != nil { // If we got a message
+				log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 
-			err := msgModel.IncomingMessage(messages.Message{
-				Text:             update.Message.Text,
-				UserID:           update.Message.From.ID,
-				Command:          update.Message.Command(),
-				CommandArguments: update.Message.CommandArguments(),
-			})
-			if err != nil {
-				log.Println("error processing message:", err)
+				err := msgModel.IncomingMessage(messages.Message{
+					Text:             update.Message.Text,
+					UserID:           update.Message.From.ID,
+					Command:          update.Message.Command(),
+					CommandArguments: update.Message.CommandArguments(),
+				})
+				if err != nil {
+					log.Println("error processing message:", err)
+				}
 			}
 		}
 	}
