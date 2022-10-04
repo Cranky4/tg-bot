@@ -4,11 +4,12 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
 )
 
 func TestConverterShouldCorrectConvertToRUB(t *testing.T) {
-	converter := ExchConverter{
-		Rates: &Rates{
+	converter := exchConverter{
+		rates: exchangerate.Rates{
 			CNY: 2,
 			USD: 3,
 			EUR: 4,
@@ -22,8 +23,8 @@ func TestConverterShouldCorrectConvertToRUB(t *testing.T) {
 }
 
 func TestConverterShouldCorrectConvertFromRUB(t *testing.T) {
-	converter := ExchConverter{
-		Rates: &Rates{
+	converter := exchConverter{
+		rates: exchangerate.Rates{
 			CNY: 2,
 			USD: 3,
 			EUR: 4,

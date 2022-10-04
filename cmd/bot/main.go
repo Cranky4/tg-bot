@@ -7,6 +7,7 @@ import (
 	"sync"
 	"syscall"
 
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/tg"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/converter"
@@ -27,7 +28,7 @@ func main() {
 		log.Fatal("tg client init failed:", err)
 	}
 
-	converter := converter.ExchConverter{}
+	converter := converter.NewConverter(exchangerate.NewGetter())
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()
@@ -42,7 +43,7 @@ func main() {
 		log.Println("loaded")
 	}()
 
-	msgModel := messages.New(tgClient, storage.NewMemoryStorage(), &converter)
+	msgModel := messages.New(tgClient, storage.NewMemoryStorage(), converter)
 
 	tgClient.ListenUpdates(ctx, msgModel)
 

@@ -14,7 +14,7 @@ type TokenGetter interface {
 }
 
 type Client struct {
-	client *tgbotapi.BotAPI
+	tgclient *tgbotapi.BotAPI
 }
 
 func New(tokenGetter TokenGetter) (*Client, error) {
@@ -23,7 +23,7 @@ func New(tokenGetter TokenGetter) (*Client, error) {
 		return nil, errors.Wrap(err, "NewBotAPI")
 	}
 
-	return &Client{client: client}, nil
+	return &Client{tgclient: client}, nil
 }
 
 func (c *Client) SendMessage(text string, userID int64, buttons []string) error {
@@ -40,7 +40,7 @@ func (c *Client) SendMessage(text string, userID int64, buttons []string) error 
 		msg.ReplyMarkup = keyboard
 	}
 
-	if _, err := c.client.Send(msg); err != nil {
+	if _, err := c.tgclient.Send(msg); err != nil {
 		return errors.Wrap(err, "client.Send")
 	}
 	return nil
@@ -50,7 +50,7 @@ func (c *Client) ListenUpdates(ctx context.Context, msgModel *messages.Model) {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 60
 
-	updates := c.client.GetUpdatesChan(u)
+	updates := c.tgclient.GetUpdatesChan(u)
 
 	log.Println("listening for messages")
 

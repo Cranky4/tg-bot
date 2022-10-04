@@ -30,12 +30,14 @@ const (
 	getExpensesCommand           = "getExpenses"
 	requestCurrencyChangeCommand = "requestCurrencyChange"
 	setCurrencyCommand           = "setCurrency"
+
+	primitiveCurrencyMultiplier = 100
 )
 
 var mainMenu = []string{
-	"/" + addExpenseCommand,
-	"/" + getExpensesCommand,
-	"/" + requestCurrencyChangeCommand,
+	strings.Join([]string{"/", addExpenseCommand}, ""),
+	strings.Join([]string{"/", getExpensesCommand}, ""),
+	strings.Join([]string{"/", requestCurrencyChangeCommand}, ""),
 }
 
 type MessageSender interface {
@@ -45,7 +47,7 @@ type MessageSender interface {
 type Model struct {
 	tgClient  MessageSender
 	storage   storage.Storage
-	converter *converter.Converter
+	converter converter.Converter
 	currency  converter.Currency
 }
 
@@ -53,7 +55,7 @@ func New(tgClient MessageSender, storage storage.Storage, conv converter.Convert
 	return &Model{
 		tgClient:  tgClient,
 		storage:   storage,
-		converter: &conv,
+		converter: conv,
 		currency:  converter.RUB,
 	}
 }
@@ -78,7 +80,7 @@ func (m *Model) IncomingMessage(msg Message) error {
 	case getExpensesCommand:
 		response, err = m.getExpenses(msg)
 	case requestCurrencyChangeCommand:
-		response, btns = m.requestCurrencyChange(msg)
+		response, btns = m.requestCurrencyChange()
 	case setCurrencyCommand:
 		response, err = m.setCurrency(msg)
 	}
@@ -110,11 +112,11 @@ func (m *Model) addExpense(msg Message) (string, error) {
 		return responseMsg, fmt.Errorf(errAddExpenseInvalidDatetimeParameterMessage, trimmedDatetime)
 	}
 
-	convertedAmount := (*m.converter).ToRUB(amount, m.currency)
+	convertedAmount := m.converter.ToRUB(amount, m.currency)
 
 	trimmedCategory := strings.Trim(parts[1], " ")
 	err = m.storage.Add(expenses.Expense{
-		Amount:   int(convertedAmount * 100),
+		Amount:   int(convertedAmount * primitiveCurrencyMultiplier),
 		Category: trimmedCategory,
 		Datetime: datetime,
 	})
@@ -161,9 +163,9 @@ func (m *Model) getExpenses(msg Message) (string, error) {
 	}
 
 	for category, amount := range result {
-		converted := (*m.converter).FromRUB(float64(amount), m.currency)
+		converted := m.converter.FromRUB(float64(amount/primitiveCurrencyMultiplier), m.currency)
 
-		if _, err := reporter.WriteString(fmt.Sprintf("%s - %.02f %s\n", category, converted/100, m.currency)); err != nil {
+		if _, err := reporter.WriteString(fmt.Sprintf("%s - %.02f %s\n", category, converted, m.currency)); err != nil {
 			return "", err
 		}
 	}
@@ -171,27 +173,22 @@ func (m *Model) getExpenses(msg Message) (string, error) {
 	return reporter.String(), nil
 }
 
-func (m *Model) requestCurrencyChange(msg Message) (string, []string) {
+func (m *Model) requestCurrencyChange() (string, []string) {
 	return "Выберите валюту", []string{
-		"/setCurrency USD",
-		"/setCurrency CNY",
-		"/setCurrency EUR",
-		"/setCurrency RUB",
+		strings.Join([]string{"/", setCurrencyCommand, " ", string(converter.USD)}, ""),
+		strings.Join([]string{"/", setCurrencyCommand, " ", string(converter.EUR)}, ""),
+		strings.Join([]string{"/", setCurrencyCommand, " ", string(converter.CNY)}, ""),
+		strings.Join([]string{"/", setCurrencyCommand, " ", string(converter.RUB)}, ""),
 	}
 }
 
 func (m *Model) setCurrency(msg Message) (string, error) {
-	var curFound bool
-	for _, c := range converter.AvailableCurrencies {
-		if msg.CommandArguments == string(c) {
-			curFound = true
-			break
-		}
-	}
+	currencies := m.converter.GetAvailableCurrencies()
+
+	_, curFound := currencies[converter.Currency(msg.CommandArguments)]
 
 	if !curFound {
-		return "", fmt.Errorf("неизвестная валюта %s. Доступные валюты: %v",
-			msg.CommandArguments, converter.AvailableCurrencies)
+		return "", fmt.Errorf("неизвестная валюта %s", msg.CommandArguments)
 	}
 
 	m.currency = converter.Currency(msg.CommandArguments)

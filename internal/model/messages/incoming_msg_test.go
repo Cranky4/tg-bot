@@ -1,24 +1,30 @@
 package messages
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
 	msgmocks "gitlab.ozon.dev/cranky4/tg-bot/internal/mocks/messages"
 	storagemocks "gitlab.ozon.dev/cranky4/tg-bot/internal/mocks/storage"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
 )
 
-var testConverter = &converter.ExchConverter{
-	Rates: &converter.Rates{
+type testGetter struct{}
+
+func (g *testGetter) Get(ctx context.Context) (exchangerate.Rates, error) {
+	return exchangerate.Rates{
 		USD: 2,
 		EUR: 3,
 		CNY: 4,
-	},
+	}, nil
 }
+
+var testConverter = converter.NewConverter(&testGetter{})
 
 func TestOnStartCommandShouldAnswerWithIntroMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)

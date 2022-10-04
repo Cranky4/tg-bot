@@ -2,8 +2,9 @@ package converter
 
 import (
 	"context"
-	"encoding/json"
-	"net/http"
+	"math"
+
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
 )
 
 type Currency string
@@ -13,84 +14,78 @@ const (
 	EUR Currency = "EUR"
 	CNY Currency = "CNY"
 	RUB Currency = "RUB"
-)
 
-var AvailableCurrencies = []Currency{USD, EUR, CNY, RUB}
+	precisionFactor = 10000 // конвертация валют идут с точностью до 0.0001
+)
 
 type Converter interface {
 	Load(ctx context.Context) error
 	FromRUB(amount float64, to Currency) float64
 	ToRUB(amount float64, from Currency) float64
+	GetAvailableCurrencies() map[Currency]struct{}
 }
 
-// https://api.exchangerate.host/latest?base=RUB&symbols=USD,CNY,EUR
-type ExchConverter struct {
-	Rates *Rates
+type exchConverter struct {
+	rates  exchangerate.Rates
+	getter exchangerate.RatesGetter
 }
 
-type Rates struct {
-	CNY float64
-	EUR float64
-	USD float64
+func NewConverter(getter exchangerate.RatesGetter) Converter {
+	return &exchConverter{
+		getter: getter,
+	}
 }
 
-type ExchangeResponse struct {
-	Success bool
-	Base    string
-	Rates   Rates
-}
+func (c *exchConverter) FromRUB(amount float64, to Currency) float64 {
+	var multiplier float64
 
-func (c *ExchConverter) FromRUB(amount float64, to Currency) float64 {
 	switch to {
 	case USD:
-		return c.Rates.USD * amount
+		multiplier = c.rates.USD
 	case CNY:
-		return c.Rates.CNY * amount
+		multiplier = c.rates.CNY
 	case EUR:
-		return c.Rates.EUR * amount
+		multiplier = c.rates.EUR
 	case RUB:
-		return amount
-	default:
-		return amount
+		multiplier = 1.0
 	}
+
+	return math.Round(amount*multiplier*precisionFactor) / precisionFactor
 }
 
-func (c *ExchConverter) ToRUB(amount float64, from Currency) float64 {
+func (c *exchConverter) ToRUB(amount float64, from Currency) float64 {
+	var divizor float64
+
 	switch from {
 	case USD:
-		return amount / c.Rates.USD
+		divizor = c.rates.USD
 	case CNY:
-		return amount / c.Rates.CNY
+		divizor = c.rates.CNY
 	case EUR:
-		return amount / c.Rates.EUR
+		divizor = c.rates.EUR
 	case RUB:
-		return amount
-	default:
-		return amount
+		divizor = 1.0
 	}
+
+	return math.Round(amount/divizor*precisionFactor) / precisionFactor
 }
 
-func (c *ExchConverter) Load(ctx context.Context) error {
-	req, err := http.NewRequestWithContext(
-		ctx,
-		"GET",
-		"https://api.exchangerate.host/latest?base=RUB&symbols=USD,CNY,EUR",
-		nil,
-	)
+func (c *exchConverter) Load(ctx context.Context) error {
+	rates, err := c.getter.Get(ctx)
 	if err != nil {
 		return err
 	}
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	var result ExchangeResponse
-	json.NewDecoder(resp.Body).Decode(&result)
-
-	c.Rates = &result.Rates
+	c.rates = rates
 
 	return nil
+}
+
+func (c *exchConverter) GetAvailableCurrencies() map[Currency]struct{} {
+	curencies := make(map[Currency]struct{})
+	curencies[USD] = struct{}{}
+	curencies[EUR] = struct{}{}
+	curencies[CNY] = struct{}{}
+
+	return curencies
 }
