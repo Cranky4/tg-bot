@@ -14,13 +14,15 @@ func TestStorageShouldAddExpensesToStorage(t *testing.T) {
 	exps := storage.GetExpenses(expenses.Week)
 	assert.Len(t, exps, 0)
 
-	datetime, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 11:25:32")
-	assert.NoError(t, err)
+	now := time.Now()
+	yesterday := now.AddDate(0, 0, -1)
+	lastMonth := now.AddDate(0, -1, 1) // без 1 дня месяц назад
+	lastYear := now.AddDate(-1, 0, 1)  // без 1 дня год назад
 
-	err = storage.Add(expenses.Expense{
+	err := storage.Add(expenses.Expense{
 		Amount:   12000,
 		Category: "Кофе",
-		Datetime: datetime,
+		Datetime: now,
 	})
 	assert.NoError(t, err)
 
@@ -30,20 +32,24 @@ func TestStorageShouldAddExpensesToStorage(t *testing.T) {
 	err = storage.Add(expenses.Expense{
 		Amount:   12500,
 		Category: "Еще кофе",
-		Datetime: datetime,
+		Datetime: yesterday,
 	})
 	assert.NoError(t, err)
 
 	exps = storage.GetExpenses(expenses.Month)
 	assert.Len(t, exps, 2)
 
-	datetime, err = time.Parse("2006-01-02 15:04:05", "2022-09-04 11:25:32")
+	err = storage.Add(expenses.Expense{
+		Amount:   12500,
+		Category: "Еще кофе в прошлом месяце",
+		Datetime: lastMonth,
+	})
 	assert.NoError(t, err)
 
 	err = storage.Add(expenses.Expense{
 		Amount:   12500,
-		Category: "Еще кофе в прошлом месяце",
-		Datetime: datetime,
+		Category: "Еще кофе в прошлом году",
+		Datetime: lastYear,
 	})
 	assert.NoError(t, err)
 
@@ -51,7 +57,7 @@ func TestStorageShouldAddExpensesToStorage(t *testing.T) {
 	assert.Len(t, exps, 3)
 
 	exps = storage.GetExpenses(expenses.Year)
-	assert.Len(t, exps, 3)
+	assert.Len(t, exps, 4)
 
 	exps = storage.GetExpenses(expenses.Week)
 	assert.Len(t, exps, 2)

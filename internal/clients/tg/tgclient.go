@@ -13,7 +13,7 @@ type TokenGetter interface {
 }
 
 type Client struct {
-	client *tgbotapi.BotAPI
+	tgclient *tgbotapi.BotAPI
 }
 
 func New(tokenGetter TokenGetter) (*Client, error) {
@@ -22,14 +22,24 @@ func New(tokenGetter TokenGetter) (*Client, error) {
 		return nil, errors.Wrap(err, "NewBotAPI")
 	}
 
-	return &Client{
-		client: client,
-	}, nil
+	return &Client{tgclient: client}, nil
 }
 
-func (c *Client) SendMessage(text string, userID int64) error {
-	_, err := c.client.Send(tgbotapi.NewMessage(userID, text))
-	if err != nil {
+func (c *Client) SendMessage(text string, userID int64, buttons []string) error {
+	msg := tgbotapi.NewMessage(userID, text)
+	msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
+
+	if buttons != nil {
+		btns := make([][]tgbotapi.KeyboardButton, 0, len(buttons))
+		for _, b := range buttons {
+			btns = append(btns, []tgbotapi.KeyboardButton{tgbotapi.NewKeyboardButton(b)})
+		}
+
+		keyboard := tgbotapi.NewReplyKeyboard(btns...)
+		msg.ReplyMarkup = keyboard
+	}
+
+	if _, err := c.tgclient.Send(msg); err != nil {
 		return errors.Wrap(err, "client.Send")
 	}
 	return nil
@@ -37,9 +47,9 @@ func (c *Client) SendMessage(text string, userID int64) error {
 
 func (c *Client) ListenUpdates(msgModel *messages.Model) {
 	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
+	u.Timeout = 5
 
-	updates := c.client.GetUpdatesChan(u)
+	updates := c.tgclient.GetUpdatesChan(u)
 
 	log.Println("listening for messages")
 
@@ -58,4 +68,8 @@ func (c *Client) ListenUpdates(msgModel *messages.Model) {
 			}
 		}
 	}
+}
+
+func (c *Client) Stop() {
+	c.tgclient.StopReceivingUpdates()
 }
