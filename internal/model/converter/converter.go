@@ -7,22 +7,20 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
 )
 
-type Currency string
-
 const (
-	USD Currency = "USD"
-	EUR Currency = "EUR"
-	CNY Currency = "CNY"
-	RUB Currency = "RUB"
+	USD = "USD"
+	EUR = "EUR"
+	CNY = "CNY"
+	RUB = "RUB"
 
 	precisionFactor = 10000 // конвертация валют идут с точностью до 0.0001
 )
 
 type Converter interface {
 	Load(ctx context.Context) error
-	FromRUB(amount float64, to Currency) float64
-	ToRUB(amount float64, from Currency) float64
-	GetAvailableCurrencies() map[Currency]struct{}
+	FromRUB(amount float64, to string) float64
+	ToRUB(amount float64, from string) float64
+	GetAvailableCurrencies() map[string]struct{}
 }
 
 type exchConverter struct {
@@ -36,7 +34,7 @@ func NewConverter(getter exchangerate.RatesGetter) Converter {
 	}
 }
 
-func (c *exchConverter) FromRUB(amount float64, to Currency) float64 {
+func (c *exchConverter) FromRUB(amount float64, to string) float64 {
 	var multiplier float64
 
 	switch to {
@@ -53,7 +51,7 @@ func (c *exchConverter) FromRUB(amount float64, to Currency) float64 {
 	return math.Round(amount*multiplier*precisionFactor) / precisionFactor
 }
 
-func (c *exchConverter) ToRUB(amount float64, from Currency) float64 {
+func (c *exchConverter) ToRUB(amount float64, from string) float64 {
 	var divizor float64
 
 	switch from {
@@ -81,11 +79,12 @@ func (c *exchConverter) Load(ctx context.Context) error {
 	return nil
 }
 
-func (c *exchConverter) GetAvailableCurrencies() map[Currency]struct{} {
-	curencies := make(map[Currency]struct{})
+func (c *exchConverter) GetAvailableCurrencies() map[string]struct{} {
+	curencies := make(map[string]struct{})
 	curencies[USD] = struct{}{}
 	curencies[EUR] = struct{}{}
 	curencies[CNY] = struct{}{}
+	curencies[RUB] = struct{}{}
 
 	return curencies
 }

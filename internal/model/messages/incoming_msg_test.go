@@ -32,7 +32,16 @@ func TestOnStartCommandShouldAnswerWithIntroMessage(t *testing.T) {
 	storage := storagemocks.NewMockStorage(ctrl)
 	model := New(sender, storage, testConverter)
 
-	sender.EXPECT().SendMessage("hello", int64(123), mainMenu)
+	msg := "Привет, я буду считать твои деньги. Вот что я умею:\n" +
+		"addExpense- добавить трату\n" +
+		"Пример: /addExpense 10;Дом;2022-10-04 10:00:00\n" +
+		"getExpenses - получить список трат за неделю, месяц и год\n" +
+		"Пример: /getExpenses week\n" +
+		"requestCurrencyChange - вызвать менюсмены валюты\n" +
+		"setCurrency - установить валюту ввода и отображения отчетов.\n" +
+		"Пример: /setCurrency EUR\n"
+
+	sender.EXPECT().SendMessage(msg, int64(123), mainMenu)
 
 	err := model.IncomingMessage(Message{
 		Command: startCommand,

@@ -35,7 +35,6 @@ const (
 )
 
 var mainMenu = []string{
-	strings.Join([]string{"/", addExpenseCommand}, ""),
 	strings.Join([]string{"/", getExpensesCommand}, ""),
 	strings.Join([]string{"/", requestCurrencyChangeCommand}, ""),
 }
@@ -48,7 +47,7 @@ type Model struct {
 	tgClient  MessageSender
 	storage   storage.Storage
 	converter converter.Converter
-	currency  converter.Currency
+	currency  string
 }
 
 func New(tgClient MessageSender, storage storage.Storage, conv converter.Converter) *Model {
@@ -74,7 +73,7 @@ func (m *Model) IncomingMessage(msg Message) error {
 
 	switch msg.Command {
 	case startCommand:
-		response = "hello"
+		response = m.showInfo()
 	case addExpenseCommand:
 		response, err = m.addExpense(msg)
 	case getExpensesCommand:
@@ -90,6 +89,20 @@ func (m *Model) IncomingMessage(msg Message) error {
 	}
 
 	return m.tgClient.SendMessage(response, msg.UserID, btns)
+}
+
+func (m *Model) showInfo() string {
+	return strings.Join([]string{
+		"Привет, я буду считать твои деньги. Вот что я умею:\n",
+		addExpenseCommand,
+		"- добавить трату\nПример: /addExpense 10;Дом;2022-10-04 10:00:00\n",
+		getExpensesCommand,
+		" - получить список трат за неделю, месяц и год\nПример: /getExpenses week\n",
+		requestCurrencyChangeCommand,
+		" - вызвать менюсмены валюты\n",
+		setCurrencyCommand,
+		" - установить валюту ввода и отображения отчетов.\nПример: /setCurrency EUR\n",
+	}, "")
 }
 
 func (m *Model) addExpense(msg Message) (string, error) {
@@ -174,24 +187,23 @@ func (m *Model) getExpenses(msg Message) (string, error) {
 }
 
 func (m *Model) requestCurrencyChange() (string, []string) {
-	return "Выберите валюту", []string{
-		strings.Join([]string{"/", setCurrencyCommand, " ", string(converter.USD)}, ""),
-		strings.Join([]string{"/", setCurrencyCommand, " ", string(converter.EUR)}, ""),
-		strings.Join([]string{"/", setCurrencyCommand, " ", string(converter.CNY)}, ""),
-		strings.Join([]string{"/", setCurrencyCommand, " ", string(converter.RUB)}, ""),
+	currs := m.converter.GetAvailableCurrencies()
+	currencies := make([]string, 0, len(currs))
+	for c := range m.converter.GetAvailableCurrencies() {
+		currencies = append(currencies, strings.Join([]string{"/", setCurrencyCommand, " ", c}, ""))
 	}
+
+	return "Выберите валюту", currencies
 }
 
 func (m *Model) setCurrency(msg Message) (string, error) {
 	currencies := m.converter.GetAvailableCurrencies()
 
-	_, curFound := currencies[converter.Currency(msg.CommandArguments)]
-
-	if !curFound {
+	if _, found := currencies[msg.CommandArguments]; !found {
 		return "", fmt.Errorf("неизвестная валюта %s", msg.CommandArguments)
 	}
 
-	m.currency = converter.Currency(msg.CommandArguments)
+	m.currency = msg.CommandArguments
 
 	return fmt.Sprintf("Установлена валюта в %s", msg.CommandArguments), nil
 }

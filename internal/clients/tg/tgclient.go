@@ -1,7 +1,6 @@
 package tg
 
 import (
-	"context"
 	"log"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -46,33 +45,31 @@ func (c *Client) SendMessage(text string, userID int64, buttons []string) error 
 	return nil
 }
 
-func (c *Client) ListenUpdates(ctx context.Context, msgModel *messages.Model) {
+func (c *Client) ListenUpdates(msgModel *messages.Model) {
 	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
+	u.Timeout = 5
 
 	updates := c.tgclient.GetUpdatesChan(u)
 
 	log.Println("listening for messages")
 
-	for {
-		select {
-		case <-ctx.Done():
-			log.Println("stoped listening for messages")
-			return
-		case update := <-updates:
-			if update.Message != nil { // If we got a message
-				log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
+	for update := range updates {
+		if update.Message != nil { // If we got a message
+			log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 
-				err := msgModel.IncomingMessage(messages.Message{
-					Text:             update.Message.Text,
-					UserID:           update.Message.From.ID,
-					Command:          update.Message.Command(),
-					CommandArguments: update.Message.CommandArguments(),
-				})
-				if err != nil {
-					log.Println("error processing message:", err)
-				}
+			err := msgModel.IncomingMessage(messages.Message{
+				Text:             update.Message.Text,
+				UserID:           update.Message.From.ID,
+				Command:          update.Message.Command(),
+				CommandArguments: update.Message.CommandArguments(),
+			})
+			if err != nil {
+				log.Println("error processing message:", err)
 			}
 		}
 	}
+}
+
+func (c *Client) Stop() {
+	c.tgclient.StopReceivingUpdates()
 }
