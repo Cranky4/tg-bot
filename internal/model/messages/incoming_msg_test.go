@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
 	msgmocks "gitlab.ozon.dev/cranky4/tg-bot/internal/mocks/messages"
-	storagemocks "gitlab.ozon.dev/cranky4/tg-bot/internal/mocks/storage"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
 )
@@ -29,7 +28,7 @@ var testConverter = converter.NewConverter(&testGetter{})
 func TestOnStartCommandShouldAnswerWithIntroMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sender := msgmocks.NewMockMessageSender(ctrl)
-	storage := storagemocks.NewMockStorage(ctrl)
+	storage := msgmocks.NewMockStorage(ctrl)
 	model := New(sender, storage, testConverter)
 
 	msg := "Привет, я буду считать твои деньги. Вот что я умею:\n" +
@@ -56,7 +55,7 @@ func TestOnUnknownCommandShouldAnswerWithHelpMessage(t *testing.T) {
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("не знаю эту команду", int64(123), mainMenu)
-	storage := storagemocks.NewMockStorage(ctrl)
+	storage := msgmocks.NewMockStorage(ctrl)
 	model := New(sender, storage, testConverter)
 
 	err := model.IncomingMessage(Message{
@@ -74,7 +73,7 @@ func TestOnAddExpenseShouldAnswerWithSuccessMessage(t *testing.T) {
 	sender.EXPECT().SendMessage("Трата 125.50 RUB добавлена в категорию Кофе с датой 2022-10-01 12:56:00",
 		int64(123), mainMenu)
 
-	storage := storagemocks.NewMockStorage(ctrl)
+	storage := msgmocks.NewMockStorage(ctrl)
 	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
 	assert.NoError(t, err)
 
@@ -103,7 +102,7 @@ func TestOnAddExpenseShouldAnswerWithFailMessage(t *testing.T) {
 		"Ожидается: Сумма;Категория;Дата \n"+
 		"Например: 120.50;Дом;2022-10-01 13:25:23", int64(123), mainMenu)
 
-	storage := storagemocks.NewMockStorage(ctrl)
+	storage := msgmocks.NewMockStorage(ctrl)
 	model := New(sender, storage, testConverter)
 
 	err := model.IncomingMessage(Message{
@@ -120,7 +119,7 @@ func TestOnGetExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("Недельный бюджет:\nпусто\n", int64(123), mainMenu)
 
-	storage := storagemocks.NewMockStorage(ctrl)
+	storage := msgmocks.NewMockStorage(ctrl)
 	storage.EXPECT().GetExpenses(expenses.Week)
 
 	model := New(sender, storage, testConverter)
@@ -139,7 +138,7 @@ func TestOnGetExpenseShouldAnswerWithFailMessage(t *testing.T) {
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("неверный период. Ожидается: year, month, week. По-умолчанию week", int64(123), mainMenu)
 
-	storage := storagemocks.NewMockStorage(ctrl)
+	storage := msgmocks.NewMockStorage(ctrl)
 
 	model := New(sender, storage, testConverter)
 

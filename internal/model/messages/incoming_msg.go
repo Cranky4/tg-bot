@@ -1,15 +1,14 @@
 package messages
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/storage"
 )
 
 const (
@@ -45,18 +44,23 @@ type MessageSender interface {
 
 type Model struct {
 	tgClient  MessageSender
-	storage   storage.Storage
+	storage   Storage
 	converter converter.Converter
 	currency  string
 }
 
-func New(tgClient MessageSender, storage storage.Storage, conv converter.Converter) *Model {
+func New(tgClient MessageSender, storage Storage, conv converter.Converter) *Model {
 	return &Model{
 		tgClient:  tgClient,
 		storage:   storage,
 		converter: conv,
 		currency:  converter.RUB,
 	}
+}
+
+type Storage interface {
+	Add(expense expenses.Expense) error
+	GetExpenses(period expenses.ExpensePeriod) ([]*expenses.Expense, error)
 }
 
 type Message struct {
@@ -134,7 +138,7 @@ func (m *Model) addExpense(msg Message) (string, error) {
 		Datetime: datetime,
 	})
 	if err != nil {
-		return responseMsg, errors.New(errSaveExpenseMessage)
+		return responseMsg, errors.Wrap(err, errSaveExpenseMessage)
 	}
 
 	return fmt.Sprintf(msgExpenseAdded, amount, m.currency, trimmedCategory, trimmedDatetime), nil
@@ -157,7 +161,10 @@ func (m *Model) getExpenses(msg Message) (string, error) {
 		expPeriod = expenses.Week
 	}
 
-	expenses := m.storage.GetExpenses(expPeriod)
+	expenses, err := m.storage.GetExpenses(expPeriod)
+	if err != nil {
+		return "", err
+	}
 
 	result := make(map[string]int) // [категория]сумма
 

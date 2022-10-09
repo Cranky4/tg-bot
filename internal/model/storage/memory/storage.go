@@ -1,31 +1,27 @@
-package storage
+package memorystorage
 
 import (
 	"time"
 
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/messages"
 )
 
-type Storage interface {
-	Add(expense expenses.Expense) error
-	GetExpenses(period expenses.ExpensePeriod) []*expenses.Expense
-}
-
-type memoryStorage struct {
+type storage struct {
 	expenses []*expenses.Expense
 }
 
-func NewMemoryStorage() Storage {
-	return &memoryStorage{}
+func NewStorage() messages.Storage {
+	return &storage{}
 }
 
-func (m *memoryStorage) Add(ex expenses.Expense) error {
+func (m *storage) Add(ex expenses.Expense) error {
 	m.expenses = append(m.expenses, &ex)
 
 	return nil
 }
 
-func (m *memoryStorage) GetExpenses(p expenses.ExpensePeriod) []*expenses.Expense {
+func (m *storage) GetExpenses(p expenses.ExpensePeriod) ([]*expenses.Expense, error) {
 	exps := make([]*expenses.Expense, 0, len(m.expenses))
 
 	periodStart := p.GetStart(time.Now())
@@ -36,5 +32,5 @@ func (m *memoryStorage) GetExpenses(p expenses.ExpensePeriod) []*expenses.Expens
 		}
 	}
 
-	return exps
+	return exps, nil
 }

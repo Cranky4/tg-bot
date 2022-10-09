@@ -5,9 +5,16 @@ import (
 )
 
 type Expense struct {
-	Amount   int // копейки
-	Category string
-	Datetime time.Time
+	ID         string
+	Amount     int // копейки
+	Category   string
+	CategoryID string
+	Datetime   time.Time
+}
+
+type ExpenseCategory struct {
+	ID   string
+	Name string
 }
 
 type ExpensePeriod int64

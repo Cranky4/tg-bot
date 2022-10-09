@@ -1,4 +1,4 @@
-package storage
+package memorystorage
 
 import (
 	"testing"
@@ -9,25 +9,27 @@ import (
 )
 
 func TestStorageShouldAddExpensesToStorage(t *testing.T) {
-	storage := NewMemoryStorage()
+	storage := NewStorage()
 
-	exps := storage.GetExpenses(expenses.Week)
+	exps, err := storage.GetExpenses(expenses.Week)
 	assert.Len(t, exps, 0)
+	assert.NoError(t, err)
 
 	now := time.Now()
 	yesterday := now.AddDate(0, 0, -1)
 	lastMonth := now.AddDate(0, -1, 1) // без 1 дня месяц назад
 	lastYear := now.AddDate(-1, 0, 1)  // без 1 дня год назад
 
-	err := storage.Add(expenses.Expense{
+	err = storage.Add(expenses.Expense{
 		Amount:   12000,
 		Category: "Кофе",
 		Datetime: now,
 	})
 	assert.NoError(t, err)
 
-	exps = storage.GetExpenses(expenses.Week)
+	exps, err = storage.GetExpenses(expenses.Week)
 	assert.Len(t, exps, 1)
+	assert.NoError(t, err)
 
 	err = storage.Add(expenses.Expense{
 		Amount:   12500,
@@ -36,8 +38,9 @@ func TestStorageShouldAddExpensesToStorage(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	exps = storage.GetExpenses(expenses.Month)
+	exps, err = storage.GetExpenses(expenses.Month)
 	assert.Len(t, exps, 2)
+	assert.NoError(t, err)
 
 	err = storage.Add(expenses.Expense{
 		Amount:   12500,
@@ -53,12 +56,15 @@ func TestStorageShouldAddExpensesToStorage(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	exps = storage.GetExpenses(expenses.Month)
+	exps, err = storage.GetExpenses(expenses.Month)
 	assert.Len(t, exps, 3)
+	assert.NoError(t, err)
 
-	exps = storage.GetExpenses(expenses.Year)
+	exps, err = storage.GetExpenses(expenses.Year)
 	assert.Len(t, exps, 4)
+	assert.NoError(t, err)
 
-	exps = storage.GetExpenses(expenses.Week)
+	exps, err = storage.GetExpenses(expenses.Week)
 	assert.Len(t, exps, 2)
+	assert.NoError(t, err)
 }

@@ -10,7 +10,17 @@ import (
 const configFile = "config/config.yaml"
 
 type Config struct {
-	Token string `yaml:"token"`
+	Token    string       `yaml:"token"`
+	Storage  StorageConf  `yaml:"storage"`
+	Database DatabaseConf `yaml:"database"`
+}
+
+type StorageConf struct {
+	Driver string `yaml:"driver"`
+}
+
+type DatabaseConf struct {
+	Dsn string `yaml:"dsn"`
 }
 
 type Service struct {
@@ -35,4 +45,12 @@ func New() (*Service, error) {
 
 func (s *Service) Token() string {
 	return s.config.Token
+}
+
+func (s *Service) Storage() StorageConf {
+	return s.config.Storage
+}
+
+func (s *Service) Database() DatabaseConf {
+	return s.config.Database
 }

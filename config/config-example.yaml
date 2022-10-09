@@ -1,1 +1,9 @@
-token: 
+token:
+
+storage:
+  driver: "memory" # "sql"
+
+database:
+  dsn: postgres://tg_bot_user:secret@localhost:5432/tg_bot
+  maxTries: 3
+  triesTimeout: "1s"
