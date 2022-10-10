@@ -99,3 +99,33 @@ func (mr *MockStorageMockRecorder) GetExpenses(period interface{}) *gomock.Call 
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExpenses", reflect.TypeOf((*MockStorage)(nil).GetExpenses), period)
 }
+
+// GetFreeLimit mocks base method.
+func (m *MockStorage) GetFreeLimit(category string) (int, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetFreeLimit", category)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// GetFreeLimit indicates an expected call of GetFreeLimit.
+func (mr *MockStorageMockRecorder) GetFreeLimit(category interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFreeLimit", reflect.TypeOf((*MockStorage)(nil).GetFreeLimit), category)
+}
+
+// SetLimit mocks base method.
+func (m *MockStorage) SetLimit(category string, amount int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetLimit", category, amount)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetLimit indicates an expected call of SetLimit.
+func (mr *MockStorageMockRecorder) SetLimit(category, amount interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLimit", reflect.TypeOf((*MockStorage)(nil).SetLimit), category, amount)
+}

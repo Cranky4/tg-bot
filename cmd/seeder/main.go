@@ -25,6 +25,7 @@ func main() {
 	defer cancel()
 
 	if err := seeder.SeedExpenses(ctx, 100, 10); err != nil {
+		cancel()
 		log.Fatal(err)
 	}
 

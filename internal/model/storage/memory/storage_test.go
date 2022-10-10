@@ -68,3 +68,60 @@ func TestStorageShouldAddExpensesToStorage(t *testing.T) {
 	assert.Len(t, exps, 2)
 	assert.NoError(t, err)
 }
+
+func TestStorageShouldSetLimitAndReachedIt(t *testing.T) {
+	storage := NewStorage()
+	now := time.Now()
+	category := "Кофе"
+
+	err := storage.Add(expenses.Expense{
+		Amount:   12000,
+		Category: category,
+		Datetime: now,
+	})
+	assert.NoError(t, err)
+
+	err = storage.Add(expenses.Expense{
+		Amount:   25000,
+		Category: "Дорогой кофе в прошлом месяце",
+		Datetime: now.AddDate(0, -1, -1),
+	})
+	assert.NoError(t, err)
+
+	freeLimit, isSet, err := storage.GetFreeLimit(category)
+	assert.NoError(t, err)
+	assert.False(t, isSet)
+	assert.Equal(t, 0, freeLimit)
+
+	err = storage.SetLimit(category, 25000)
+	assert.NoError(t, err)
+
+	freeLimit, isSet, err = storage.GetFreeLimit(category)
+	assert.NoError(t, err)
+	assert.True(t, isSet)
+	assert.Equal(t, 13000, freeLimit)
+
+	err = storage.Add(expenses.Expense{
+		Amount:   12000,
+		Category: category,
+		Datetime: now,
+	})
+	assert.NoError(t, err)
+
+	freeLimit, isSet, err = storage.GetFreeLimit(category)
+	assert.NoError(t, err)
+	assert.True(t, isSet)
+	assert.Equal(t, 1000, freeLimit)
+
+	err = storage.Add(expenses.Expense{
+		Amount:   12000,
+		Category: category,
+		Datetime: now,
+	})
+	assert.NoError(t, err)
+
+	freeLimit, isSet, err = storage.GetFreeLimit(category)
+	assert.NoError(t, err)
+	assert.True(t, isSet)
+	assert.Equal(t, -11000, freeLimit)
+}

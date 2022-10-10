@@ -1,6 +1,7 @@
 package memorystorage
 
 import (
+	"strings"
 	"time"
 
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
@@ -9,10 +10,13 @@ import (
 
 type storage struct {
 	expenses []*expenses.Expense
+	limits   map[string]int
 }
 
 func NewStorage() messages.Storage {
-	return &storage{}
+	return &storage{
+		limits: make(map[string]int),
+	}
 }
 
 func (m *storage) Add(ex expenses.Expense) error {
@@ -33,4 +37,31 @@ func (m *storage) GetExpenses(p expenses.ExpensePeriod) ([]*expenses.Expense, er
 	}
 
 	return exps, nil
+}
+
+func (m *storage) SetLimit(category string, amount int) error {
+	m.limits[strings.ToLower(category)] = amount
+
+	return nil
+}
+
+func (m *storage) GetFreeLimit(category string) (int, bool, error) {
+	loweredCategory := strings.ToLower(category)
+	if _, ex := m.limits[loweredCategory]; !ex {
+		return 0, false, nil
+	}
+
+	year, month, _ := time.Now().Date()
+	loc := time.Now().Location()
+	beginingOfMonth := time.Date(year, month, 0, 0, 0, 0, 0, loc)
+
+	total := 0
+	for i := 0; i < len(m.expenses); i++ {
+		if strings.ToLower(m.expenses[i].Category) == loweredCategory &&
+			m.expenses[i].Datetime.After(beginingOfMonth) {
+			total += m.expenses[i].Amount
+		}
+	}
+
+	return m.limits[loweredCategory] - total, true, nil
 }

@@ -38,7 +38,9 @@ func TestOnStartCommandShouldAnswerWithIntroMessage(t *testing.T) {
 		"Пример: /getExpenses week\n" +
 		"requestCurrencyChange - вызвать менюсмены валюты\n" +
 		"setCurrency - установить валюту ввода и отображения отчетов.\n" +
-		"Пример: /setCurrency EUR\n"
+		"Пример: /setCurrency EUR\n" +
+		"setLimit - установить лимит трат на категорию.\n" +
+		"Пример: /setLimit Ремонт 1200.50\n"
 
 	sender.EXPECT().SendMessage(msg, int64(123), mainMenu)
 
@@ -82,6 +84,69 @@ func TestOnAddExpenseShouldAnswerWithSuccessMessage(t *testing.T) {
 		Category: "Кофе",
 		Datetime: date,
 	})
+	storage.EXPECT().GetFreeLimit("Кофе")
+
+	model := New(sender, storage, testConverter)
+
+	err = model.IncomingMessage(Message{
+		Command:          addExpenseCommand,
+		CommandArguments: "125.50; Кофе; 2022-10-01 12:56:00",
+		UserID:           123,
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestOnAddExpenseWithLimitSetShouldAnswerWithSuccessMessage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	sender := msgmocks.NewMockMessageSender(ctrl)
+	sender.EXPECT().SendMessage("Трата 125.50 RUB добавлена в категорию Кофе с датой 2022-10-01 12:56:00.\n"+
+		"Свободный месячный лимит 10.00 RUB",
+		int64(123), mainMenu)
+
+	storage := msgmocks.NewMockStorage(ctrl)
+
+	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
+	assert.NoError(t, err)
+
+	storage.EXPECT().Add(expenses.Expense{
+		Amount:   12550,
+		Category: "Кофе",
+		Datetime: date,
+	})
+	storage.EXPECT().GetFreeLimit("Кофе").Return(1000, true, nil)
+
+	model := New(sender, storage, testConverter)
+
+	err = model.IncomingMessage(Message{
+		Command:          addExpenseCommand,
+		CommandArguments: "125.50; Кофе; 2022-10-01 12:56:00",
+		UserID:           123,
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestOnAddExpenseWithLimitReachedShouldAnswerWithSuccessMessage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	sender := msgmocks.NewMockMessageSender(ctrl)
+	sender.EXPECT().SendMessage("Трата 125.50 RUB добавлена в категорию Кофе с датой 2022-10-01 12:56:00.\n"+
+		"Достигнут месячный лимит (-12.00 RUB)",
+		int64(123), mainMenu)
+
+	storage := msgmocks.NewMockStorage(ctrl)
+
+	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
+	assert.NoError(t, err)
+
+	storage.EXPECT().Add(expenses.Expense{
+		Amount:   12550,
+		Category: "Кофе",
+		Datetime: date,
+	})
+	storage.EXPECT().GetFreeLimit("Кофе").Return(-1200, true, nil)
 
 	model := New(sender, storage, testConverter)
 
@@ -113,7 +178,7 @@ func TestOnAddExpenseShouldAnswerWithFailMessage(t *testing.T) {
 	assert.NoError(t, err)
 }
 
-func TestOnGetExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
+func TestOnGetWeekExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
@@ -132,6 +197,46 @@ func TestOnGetExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestOnGetMonthExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	sender := msgmocks.NewMockMessageSender(ctrl)
+	sender.EXPECT().SendMessage("Месячный бюджет:\nпусто\n", int64(123), mainMenu)
+
+	storage := msgmocks.NewMockStorage(ctrl)
+	storage.EXPECT().GetExpenses(expenses.Month)
+
+	model := New(sender, storage, testConverter)
+
+	err := model.IncomingMessage(Message{
+		Command:          getExpensesCommand,
+		CommandArguments: "month",
+		UserID:           123,
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestOnGetYearExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	sender := msgmocks.NewMockMessageSender(ctrl)
+	sender.EXPECT().SendMessage("Годовой бюджет:\nпусто\n", int64(123), mainMenu)
+
+	storage := msgmocks.NewMockStorage(ctrl)
+	storage.EXPECT().GetExpenses(expenses.Year)
+
+	model := New(sender, storage, testConverter)
+
+	err := model.IncomingMessage(Message{
+		Command:          getExpensesCommand,
+		CommandArguments: "year",
+		UserID:           123,
+	})
+
+	assert.NoError(t, err)
+}
+
 func TestOnGetExpenseShouldAnswerWithFailMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 
@@ -145,6 +250,122 @@ func TestOnGetExpenseShouldAnswerWithFailMessage(t *testing.T) {
 	err := model.IncomingMessage(Message{
 		Command:          getExpensesCommand,
 		CommandArguments: "wrong",
+		UserID:           123,
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestOnRequestCurrencyChangeShouldAnswerWithSuccessMessage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	sender := msgmocks.NewMockMessageSender(ctrl)
+	sender.EXPECT().SendMessage(
+		"Выберите валюту",
+		int64(123),
+		[]string{"/setCurrency CNY", "/setCurrency EUR", "/setCurrency RUB", "/setCurrency USD"},
+	)
+
+	storage := msgmocks.NewMockStorage(ctrl)
+
+	model := New(sender, storage, testConverter)
+
+	err := model.IncomingMessage(Message{
+		Command:          requestCurrencyChangeCommand,
+		CommandArguments: "",
+		UserID:           123,
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestOnSetCurrenctShouldAnswerWithSuccessMessage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	sender := msgmocks.NewMockMessageSender(ctrl)
+	sender.EXPECT().SendMessage(
+		"Установлена валюта в USD",
+		int64(123),
+		mainMenu,
+	)
+
+	storage := msgmocks.NewMockStorage(ctrl)
+
+	model := New(sender, storage, testConverter)
+
+	err := model.IncomingMessage(Message{
+		Command:          setCurrencyCommand,
+		CommandArguments: "USD",
+		UserID:           123,
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestOnSetCurrenctShouldAnswerWithFailMessage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	sender := msgmocks.NewMockMessageSender(ctrl)
+	sender.EXPECT().SendMessage(
+		"неизвестная валюта FOO",
+		int64(123),
+		mainMenu,
+	)
+
+	storage := msgmocks.NewMockStorage(ctrl)
+
+	model := New(sender, storage, testConverter)
+
+	err := model.IncomingMessage(Message{
+		Command:          setCurrencyCommand,
+		CommandArguments: "FOO",
+		UserID:           123,
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestOnSetLimitShouldAnswerWithFailMessage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	sender := msgmocks.NewMockMessageSender(ctrl)
+	sender.EXPECT().SendMessage(
+		"неверное количество параметров.\nОжидается: Категория;Сумма \nНапример: Дом;12000.50",
+		int64(123),
+		mainMenu,
+	)
+
+	storage := msgmocks.NewMockStorage(ctrl)
+
+	model := New(sender, storage, testConverter)
+
+	err := model.IncomingMessage(Message{
+		Command:          setLimitCommand,
+		CommandArguments: "invalid",
+		UserID:           123,
+	})
+
+	assert.NoError(t, err)
+}
+
+func TestOnSetLimitShouldAnswerWithSuccessMessage(t *testing.T) {
+	ctrl := gomock.NewController(t)
+
+	sender := msgmocks.NewMockMessageSender(ctrl)
+	sender.EXPECT().SendMessage(
+		"Установлен месячный лимит 12500.50 RUB для категории Дом",
+		int64(123),
+		mainMenu,
+	)
+
+	storage := msgmocks.NewMockStorage(ctrl)
+	storage.EXPECT().SetLimit("Дом", 1250050)
+
+	model := New(sender, storage, testConverter)
+
+	err := model.IncomingMessage(Message{
+		Command:          setLimitCommand,
+		CommandArguments: "Дом;12500.50",
 		UserID:           123,
 	})
 

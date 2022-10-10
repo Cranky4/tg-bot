@@ -46,12 +46,15 @@ func (g *exchRatesGetter) Get(ctx context.Context) (Rates, error) {
 	if err != nil {
 		return Rates{}, err
 	}
-	defer res.Body.Close()
+	var bodyCloseErr error
+	defer func() {
+		bodyCloseErr = res.Body.Close()
+	}()
 
 	var result exchangeResponse
-	if err := json.NewDecoder(res.Body).Decode(&result); err != nil {
+	if err = json.NewDecoder(res.Body).Decode(&result); err != nil {
 		return Rates{}, err
 	}
 
-	return result.Rates, nil
+	return result.Rates, bodyCloseErr
 }

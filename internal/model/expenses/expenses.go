@@ -25,16 +25,22 @@ const (
 	Year
 )
 
+const (
+	weekly  = "Недельный"
+	monthly = "Месячный"
+	annual  = "Годовой"
+)
+
 func (p *ExpensePeriod) String() string {
 	switch *p {
 	default:
-		return "Недельный"
+		return weekly
 	case Week:
-		return "Недельный"
+		return weekly
 	case Month:
-		return "Месячный"
+		return monthly
 	case Year:
-		return "Годовой"
+		return annual
 	}
 }
 

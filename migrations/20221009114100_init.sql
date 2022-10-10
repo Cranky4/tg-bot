@@ -17,6 +17,9 @@ CREATE TABLE expenses (
     created_at timestamp not null default now()
 );
 
+CREATE INDEX idx_expenses_category_id on expenses USING hash (category_id); -- потому что выборка, как точное сравнение (либо btree, так как он тодже покрывает равенство)
+CREATE INDEX idx_expenses_datetime on expenses (datetime); -- потому что  стандартный btree индекс подходит для диапазонов
+
 -- +goose StatementEnd
 
 -- +goose Down

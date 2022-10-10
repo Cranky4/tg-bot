@@ -2,6 +2,7 @@ package messages
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -14,13 +15,18 @@ import (
 const (
 	errAddExpenseInvalidParameterMessage = "неверное количество параметров.\nОжидается: Сумма;Категория;Дата \n" +
 		"Например: 120.50;Дом;2022-10-01 13:25:23"
-	errAddExpenseInvalidAmountParameterMessage   = "неверное значение суммы: %v"
+	errInvalidAmountParameterMessage             = "неверное значение суммы: %v"
 	errAddExpenseInvalidDatetimeParameterMessage = "неверный формат даты и времени: %v. Ожидается 2022-01-28 15:10:11"
 	errSaveExpenseMessage                        = "ошибка сохранения траты"
-
-	errGetExpensesInvalidPeriodMessage = "неверный период. Ожидается: year, month, week. По-умолчанию week"
-
+	errUnknownCurrency                           = "неизвестная валюта %s"
+	errGetExpensesInvalidPeriodMessage           = "неверный период. Ожидается: year, month, week. По-умолчанию week"
+	errSetLimitInvalidParameterMessage           = "неверное количество параметров.\nОжидается: Категория;Сумма \n" +
+		"Например: Дом;12000.50"
 	msgExpenseAdded = "Трата %.02f %s добавлена в категорию %s с датой %s"
+	msgCurrencySet  = "Установлена валюта в %s"
+	msgFreeLimit    = "Свободный месячный лимит %.02f %s"
+	msgLimitReached = "Достигнут месячный лимит (%.02f %s)"
+	msgSetLimit     = "Установлен месячный лимит %.02f %s для категории %s"
 
 	datetimeFormat = "2006-01-02 15:04:05"
 
@@ -29,6 +35,7 @@ const (
 	getExpensesCommand           = "getExpenses"
 	requestCurrencyChangeCommand = "requestCurrencyChange"
 	setCurrencyCommand           = "setCurrency"
+	setLimitCommand              = "setLimit"
 
 	primitiveCurrencyMultiplier = 100
 )
@@ -61,6 +68,8 @@ func New(tgClient MessageSender, storage Storage, conv converter.Converter) *Mod
 type Storage interface {
 	Add(expense expenses.Expense) error
 	GetExpenses(period expenses.ExpensePeriod) ([]*expenses.Expense, error)
+	SetLimit(category string, amount int) error
+	GetFreeLimit(category string) (int, bool, error)
 }
 
 type Message struct {
@@ -86,6 +95,8 @@ func (m *Model) IncomingMessage(msg Message) error {
 		response, btns = m.requestCurrencyChange()
 	case setCurrencyCommand:
 		response, err = m.setCurrency(msg)
+	case setLimitCommand:
+		response, err = m.setLimit(msg)
 	}
 
 	if err != nil {
@@ -106,6 +117,8 @@ func (m *Model) showInfo() string {
 		" - вызвать менюсмены валюты\n",
 		setCurrencyCommand,
 		" - установить валюту ввода и отображения отчетов.\nПример: /setCurrency EUR\n",
+		setLimitCommand,
+		" - установить лимит трат на категорию.\nПример: /setLimit Ремонт 1200.50\n",
 	}, "")
 }
 
@@ -120,7 +133,7 @@ func (m *Model) addExpense(msg Message) (string, error) {
 	trimmedAmount := strings.Trim(parts[0], " ")
 	amount, err := strconv.ParseFloat(trimmedAmount, 32)
 	if err != nil {
-		return responseMsg, fmt.Errorf(errAddExpenseInvalidAmountParameterMessage, trimmedAmount)
+		return responseMsg, fmt.Errorf(errInvalidAmountParameterMessage, trimmedAmount)
 	}
 
 	trimmedDatetime := strings.Trim(parts[2], " ")
@@ -141,7 +154,28 @@ func (m *Model) addExpense(msg Message) (string, error) {
 		return responseMsg, errors.Wrap(err, errSaveExpenseMessage)
 	}
 
-	return fmt.Sprintf(msgExpenseAdded, amount, m.currency, trimmedCategory, trimmedDatetime), nil
+	freeLimit, hasLimit, err := m.storage.GetFreeLimit(trimmedCategory)
+	if err != nil {
+		return responseMsg, errors.Wrap(err, errSaveExpenseMessage)
+	}
+	responseMsg = msgExpenseAdded
+
+	if hasLimit {
+		convertedFreeLimit := m.converter.FromRUB(float64(freeLimit), m.currency)
+		if freeLimit > 0 {
+			responseMsg = fmt.Sprintf(
+				"%s.\n%s", responseMsg,
+				fmt.Sprintf(msgFreeLimit, convertedFreeLimit/100, m.currency),
+			)
+		} else {
+			responseMsg = fmt.Sprintf(
+				"%s.\n%s", responseMsg,
+				fmt.Sprintf(msgLimitReached, convertedFreeLimit/100, m.currency),
+			)
+		}
+	}
+
+	return fmt.Sprintf(responseMsg, amount, m.currency, trimmedCategory, trimmedDatetime), nil
 }
 
 func (m *Model) getExpenses(msg Message) (string, error) {
@@ -200,6 +234,10 @@ func (m *Model) requestCurrencyChange() (string, []string) {
 		currencies = append(currencies, strings.Join([]string{"/", setCurrencyCommand, " ", c}, ""))
 	}
 
+	sort.Slice(currencies, func(i, j int) bool {
+		return currencies[i] < currencies[j]
+	})
+
 	return "Выберите валюту", currencies
 }
 
@@ -207,10 +245,33 @@ func (m *Model) setCurrency(msg Message) (string, error) {
 	currencies := m.converter.GetAvailableCurrencies()
 
 	if _, found := currencies[msg.CommandArguments]; !found {
-		return "", fmt.Errorf("неизвестная валюта %s", msg.CommandArguments)
+		return "", fmt.Errorf(errUnknownCurrency, msg.CommandArguments)
 	}
 
 	m.currency = msg.CommandArguments
 
-	return fmt.Sprintf("Установлена валюта в %s", msg.CommandArguments), nil
+	return fmt.Sprintf(msgCurrencySet, msg.CommandArguments), nil
+}
+
+func (m *Model) setLimit(msg Message) (string, error) {
+	parts := strings.Split(msg.CommandArguments, ";")
+	var responseMsg string
+
+	if len(parts) != 2 {
+		return responseMsg, errors.New(errSetLimitInvalidParameterMessage)
+	}
+
+	trimmedCategory := strings.Trim(parts[0], " ")
+
+	trimmedAmount := strings.Trim(parts[1], " ")
+	amount, err := strconv.ParseFloat(trimmedAmount, 32)
+	if err != nil {
+		return responseMsg, fmt.Errorf(errInvalidAmountParameterMessage, trimmedAmount)
+	}
+
+	convertedAmount := m.converter.ToRUB(amount, m.currency)
+	if err := m.storage.SetLimit(trimmedCategory, int(convertedAmount*primitiveCurrencyMultiplier)); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(msgSetLimit, convertedAmount, m.currency, trimmedCategory), nil
 }

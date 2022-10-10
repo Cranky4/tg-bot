@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"math/rand"
 	"strings"
 	"time"
@@ -17,20 +16,29 @@ import (
 const (
 	expenseCategoryInsertSQL = "INSERT INTO expense_categories(id, name) VALUES %s"
 	expensesInsertSQL        = "INSERT INTO expenses(id, amount, datetime, category_id) VALUES %s"
+
+	cannotConnectToDB               = "не могу подключиться к базе данных"
+	cannotStartTransactionErrMsg    = "не могу начать транзакцию"
+	cannotRollbackTransactionErrMsg = "не могу откатить транзакцию"
+	cannotInsertCategoriesErrMsg    = "не могу добавить категории"
 )
 
-type seeder struct {
+type Seeder interface {
+	SeedExpenses(ctx context.Context, expensesCount, categoriesCount int) error
+}
+
+type dbSeeder struct {
 	dsn string
 	db  *sql.DB
 }
 
-func NewSeeder(dsn string) *seeder {
-	return &seeder{
+func NewSeeder(dsn string) Seeder {
+	return &dbSeeder{
 		dsn: dsn,
 	}
 }
 
-func (s *seeder) ensureDBConnected() error {
+func (s *dbSeeder) ensureDBConnected() error {
 	if s.db != nil {
 		return nil
 	}
@@ -49,11 +57,11 @@ func (s *seeder) ensureDBConnected() error {
 	return nil
 }
 
-func (s *seeder) SeedExpenses(ctx context.Context, expensesCount, categoriesCount int) error {
+func (s *dbSeeder) SeedExpenses(ctx context.Context, expensesCount, categoriesCount int) error {
 	var err error
 
 	if err = s.ensureDBConnected(); err != nil {
-		return errors.Wrap(err, "cannot connect to database")
+		return errors.Wrap(err, cannotConnectToDB)
 	}
 
 	categories := make([]iternalexpenses.ExpenseCategory, 0, categoriesCount)
@@ -70,29 +78,38 @@ func (s *seeder) SeedExpenses(ctx context.Context, expensesCount, categoriesCoun
 
 		expenses = append(expenses, iternalexpenses.Expense{
 			ID:         faker.UUIDHyphenated(),
-			CategoryID: categories[rand.Intn(categoriesCount)].ID,          //nolint:gosec
-			Amount:     rand.Intn(99999) + 1,                               //nolint:gosec
-			Datetime:   time.Unix(rand.Int63n(3600*24*365)+minDatetime, 0), //nolint:gosec
+			CategoryID: categories[rand.Intn(categoriesCount)].ID,
+			Amount:     rand.Intn(99999) + 1,
+			Datetime:   time.Unix(rand.Int63n(3600*24*365)+minDatetime, 0),
 		})
 	}
 
 	tx, err := s.db.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
-		tx.Rollback()
-		return errors.Wrap(err, "cannot start transaction")
+		return errors.Wrap(err, cannotStartTransactionErrMsg)
 	}
 
-	if err := insertCategories(ctx, categoriesCount, categories, tx); err != nil {
-		tx.Rollback()
-		return errors.Wrap(err, "cannot insert categories")
+	defer func() {
+		if err != nil {
+			err = tx.Rollback()
+		} else {
+			err = tx.Commit()
+		}
+	}()
+
+	if err = insertCategories(ctx, categoriesCount, categories, tx); err != nil {
+		if tErr := tx.Rollback(); tErr != nil {
+			return errors.Wrap(tErr, cannotRollbackTransactionErrMsg)
+		}
+
+		return errors.Wrap(err, cannotInsertCategoriesErrMsg)
 	}
 
-	if err := insertExpenses(ctx, expensesCount, expenses, tx); err != nil {
-		tx.Rollback()
-		return errors.Wrap(err, "cannot insert expenses")
+	if err = insertExpenses(ctx, expensesCount, expenses, tx); err != nil {
+		return errors.Wrap(err, cannotInsertCategoriesErrMsg)
 	}
 
-	return tx.Commit()
+	return err
 }
 
 func insertCategories(ctx context.Context, count int, categories []iternalexpenses.ExpenseCategory, tx *sql.Tx) error {
@@ -126,8 +143,6 @@ func insertExpenses(ctx context.Context, count int, categories []iternalexpenses
 
 func doBatchInsert(ctx context.Context, tx *sql.Tx, sql string, placeholders []string, values []interface{}) error {
 	query := fmt.Sprintf(sql, strings.Join(placeholders, ","))
-
-	log.Print(query)
 
 	_, err := tx.ExecContext(ctx, query, values...)
 
