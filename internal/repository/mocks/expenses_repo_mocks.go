@@ -5,6 +5,7 @@
 package mock_repository
 
 import (
+	context "context"
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
@@ -35,38 +36,38 @@ func (m *MockExpensesRepository) EXPECT() *MockExpensesRepositoryMockRecorder {
 }
 
 // Add mocks base method.
-func (m *MockExpensesRepository) Add(expense expenses.Expense) error {
+func (m *MockExpensesRepository) Add(ctx context.Context, expense expenses.Expense) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Add", expense)
+	ret := m.ctrl.Call(m, "Add", ctx, expense)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Add indicates an expected call of Add.
-func (mr *MockExpensesRepositoryMockRecorder) Add(expense interface{}) *gomock.Call {
+func (mr *MockExpensesRepositoryMockRecorder) Add(ctx, expense interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockExpensesRepository)(nil).Add), expense)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Add", reflect.TypeOf((*MockExpensesRepository)(nil).Add), ctx, expense)
 }
 
 // GetExpenses mocks base method.
-func (m *MockExpensesRepository) GetExpenses(period expenses.ExpensePeriod) ([]*expenses.Expense, error) {
+func (m *MockExpensesRepository) GetExpenses(ctx context.Context, period expenses.ExpensePeriod) ([]*expenses.Expense, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetExpenses", period)
+	ret := m.ctrl.Call(m, "GetExpenses", ctx, period)
 	ret0, _ := ret[0].([]*expenses.Expense)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // GetExpenses indicates an expected call of GetExpenses.
-func (mr *MockExpensesRepositoryMockRecorder) GetExpenses(period interface{}) *gomock.Call {
+func (mr *MockExpensesRepositoryMockRecorder) GetExpenses(ctx, period interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExpenses", reflect.TypeOf((*MockExpensesRepository)(nil).GetExpenses), period)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExpenses", reflect.TypeOf((*MockExpensesRepository)(nil).GetExpenses), ctx, period)
 }
 
 // GetFreeLimit mocks base method.
-func (m *MockExpensesRepository) GetFreeLimit(category string) (int64, bool, error) {
+func (m *MockExpensesRepository) GetFreeLimit(ctx context.Context, category string) (int64, bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "GetFreeLimit", category)
+	ret := m.ctrl.Call(m, "GetFreeLimit", ctx, category)
 	ret0, _ := ret[0].(int64)
 	ret1, _ := ret[1].(bool)
 	ret2, _ := ret[2].(error)
@@ -74,21 +75,21 @@ func (m *MockExpensesRepository) GetFreeLimit(category string) (int64, bool, err
 }
 
 // GetFreeLimit indicates an expected call of GetFreeLimit.
-func (mr *MockExpensesRepositoryMockRecorder) GetFreeLimit(category interface{}) *gomock.Call {
+func (mr *MockExpensesRepositoryMockRecorder) GetFreeLimit(ctx, category interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFreeLimit", reflect.TypeOf((*MockExpensesRepository)(nil).GetFreeLimit), category)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetFreeLimit", reflect.TypeOf((*MockExpensesRepository)(nil).GetFreeLimit), ctx, category)
 }
 
 // SetLimit mocks base method.
-func (m *MockExpensesRepository) SetLimit(category string, amount int64) error {
+func (m *MockExpensesRepository) SetLimit(ctx context.Context, category string, amount int64) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetLimit", category, amount)
+	ret := m.ctrl.Call(m, "SetLimit", ctx, category, amount)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SetLimit indicates an expected call of SetLimit.
-func (mr *MockExpensesRepositoryMockRecorder) SetLimit(category, amount interface{}) *gomock.Call {
+func (mr *MockExpensesRepositoryMockRecorder) SetLimit(ctx, category, amount interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLimit", reflect.TypeOf((*MockExpensesRepository)(nil).SetLimit), category, amount)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLimit", reflect.TypeOf((*MockExpensesRepository)(nil).SetLimit), ctx, category, amount)
 }

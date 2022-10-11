@@ -31,6 +31,7 @@ func TestOnStartCommandShouldAnswerWithIntroMessage(t *testing.T) {
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	storage := repomocks.NewMockExpensesRepository(ctrl)
 	model := New(sender, storage, testConverter)
+	ctx := context.Background()
 
 	msg := "Привет, я буду считать твои деньги. Вот что я умею:\n" +
 		"addExpense- добавить трату\n" +
@@ -45,7 +46,7 @@ func TestOnStartCommandShouldAnswerWithIntroMessage(t *testing.T) {
 
 	sender.EXPECT().SendMessage(msg, int64(123), mainMenu)
 
-	err := model.IncomingMessage(Message{
+	err := model.IncomingMessage(ctx, Message{
 		Command: startCommand,
 		UserID:  123,
 	})
@@ -55,13 +56,14 @@ func TestOnStartCommandShouldAnswerWithIntroMessage(t *testing.T) {
 
 func TestOnUnknownCommandShouldAnswerWithHelpMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("не знаю эту команду", int64(123), mainMenu)
 	storage := repomocks.NewMockExpensesRepository(ctrl)
 	model := New(sender, storage, testConverter)
 
-	err := model.IncomingMessage(Message{
+	err := model.IncomingMessage(ctx, Message{
 		Text:   "some text",
 		UserID: 123,
 	})
@@ -71,6 +73,7 @@ func TestOnUnknownCommandShouldAnswerWithHelpMessage(t *testing.T) {
 
 func TestOnAddExpenseShouldAnswerWithSuccessMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("Трата 125.50 RUB добавлена в категорию Кофе с датой 2022-10-01 12:56:00",
@@ -80,16 +83,16 @@ func TestOnAddExpenseShouldAnswerWithSuccessMessage(t *testing.T) {
 	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
 	assert.NoError(t, err)
 
-	storage.EXPECT().Add(expenses.Expense{
+	storage.EXPECT().Add(ctx, expenses.Expense{
 		Amount:   12550,
 		Category: "Кофе",
 		Datetime: date,
 	})
-	storage.EXPECT().GetFreeLimit("Кофе")
+	storage.EXPECT().GetFreeLimit(ctx, "Кофе")
 
 	model := New(sender, storage, testConverter)
 
-	err = model.IncomingMessage(Message{
+	err = model.IncomingMessage(ctx, Message{
 		Command:          addExpenseCommand,
 		CommandArguments: "125.50; Кофе; 2022-10-01 12:56:00",
 		UserID:           123,
@@ -100,6 +103,7 @@ func TestOnAddExpenseShouldAnswerWithSuccessMessage(t *testing.T) {
 
 func TestOnAddExpenseWithLimitSetShouldAnswerWithSuccessMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("Трата 125.50 RUB добавлена в категорию Кофе с датой 2022-10-01 12:56:00.\n"+
@@ -111,16 +115,16 @@ func TestOnAddExpenseWithLimitSetShouldAnswerWithSuccessMessage(t *testing.T) {
 	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
 	assert.NoError(t, err)
 
-	storage.EXPECT().Add(expenses.Expense{
+	storage.EXPECT().Add(ctx, expenses.Expense{
 		Amount:   12550,
 		Category: "Кофе",
 		Datetime: date,
 	})
-	storage.EXPECT().GetFreeLimit("Кофе").Return(int64(1000), true, nil)
+	storage.EXPECT().GetFreeLimit(ctx, "Кофе").Return(int64(1000), true, nil)
 
 	model := New(sender, storage, testConverter)
 
-	err = model.IncomingMessage(Message{
+	err = model.IncomingMessage(ctx, Message{
 		Command:          addExpenseCommand,
 		CommandArguments: "125.50; Кофе; 2022-10-01 12:56:00",
 		UserID:           123,
@@ -131,6 +135,7 @@ func TestOnAddExpenseWithLimitSetShouldAnswerWithSuccessMessage(t *testing.T) {
 
 func TestOnAddExpenseWithLimitReachedShouldAnswerWithSuccessMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("Трата 125.50 RUB добавлена в категорию Кофе с датой 2022-10-01 12:56:00.\n"+
@@ -142,16 +147,16 @@ func TestOnAddExpenseWithLimitReachedShouldAnswerWithSuccessMessage(t *testing.T
 	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
 	assert.NoError(t, err)
 
-	storage.EXPECT().Add(expenses.Expense{
+	storage.EXPECT().Add(ctx, expenses.Expense{
 		Amount:   12550,
 		Category: "Кофе",
 		Datetime: date,
 	})
-	storage.EXPECT().GetFreeLimit("Кофе").Return(int64(-1200), true, nil)
+	storage.EXPECT().GetFreeLimit(ctx, "Кофе").Return(int64(-1200), true, nil)
 
 	model := New(sender, storage, testConverter)
 
-	err = model.IncomingMessage(Message{
+	err = model.IncomingMessage(ctx, Message{
 		Command:          addExpenseCommand,
 		CommandArguments: "125.50; Кофе; 2022-10-01 12:56:00",
 		UserID:           123,
@@ -162,6 +167,7 @@ func TestOnAddExpenseWithLimitReachedShouldAnswerWithSuccessMessage(t *testing.T
 
 func TestOnAddExpenseShouldAnswerWithFailMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("неверное количество параметров.\n"+
@@ -171,7 +177,7 @@ func TestOnAddExpenseShouldAnswerWithFailMessage(t *testing.T) {
 	storage := repomocks.NewMockExpensesRepository(ctrl)
 	model := New(sender, storage, testConverter)
 
-	err := model.IncomingMessage(Message{
+	err := model.IncomingMessage(ctx, Message{
 		Command: addExpenseCommand,
 		UserID:  123,
 	})
@@ -181,16 +187,17 @@ func TestOnAddExpenseShouldAnswerWithFailMessage(t *testing.T) {
 
 func TestOnGetWeekExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("Недельный бюджет:\nпусто\n", int64(123), mainMenu)
 
 	storage := repomocks.NewMockExpensesRepository(ctrl)
-	storage.EXPECT().GetExpenses(expenses.Week)
+	storage.EXPECT().GetExpenses(ctx, expenses.Week)
 
 	model := New(sender, storage, testConverter)
 
-	err := model.IncomingMessage(Message{
+	err := model.IncomingMessage(ctx, Message{
 		Command: getExpensesCommand,
 		UserID:  123,
 	})
@@ -200,16 +207,17 @@ func TestOnGetWeekExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 
 func TestOnGetMonthExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("Месячный бюджет:\nпусто\n", int64(123), mainMenu)
 
 	storage := repomocks.NewMockExpensesRepository(ctrl)
-	storage.EXPECT().GetExpenses(expenses.Month)
+	storage.EXPECT().GetExpenses(ctx, expenses.Month)
 
 	model := New(sender, storage, testConverter)
 
-	err := model.IncomingMessage(Message{
+	err := model.IncomingMessage(ctx, Message{
 		Command:          getExpensesCommand,
 		CommandArguments: "month",
 		UserID:           123,
@@ -220,16 +228,17 @@ func TestOnGetMonthExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 
 func TestOnGetYearExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("Годовой бюджет:\nпусто\n", int64(123), mainMenu)
 
 	storage := repomocks.NewMockExpensesRepository(ctrl)
-	storage.EXPECT().GetExpenses(expenses.Year)
+	storage.EXPECT().GetExpenses(ctx, expenses.Year)
 
 	model := New(sender, storage, testConverter)
 
-	err := model.IncomingMessage(Message{
+	err := model.IncomingMessage(ctx, Message{
 		Command:          getExpensesCommand,
 		CommandArguments: "year",
 		UserID:           123,
@@ -240,6 +249,7 @@ func TestOnGetYearExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 
 func TestOnGetExpenseShouldAnswerWithFailMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("неверный период. Ожидается: year, month, week. По-умолчанию week", int64(123), mainMenu)
@@ -248,7 +258,7 @@ func TestOnGetExpenseShouldAnswerWithFailMessage(t *testing.T) {
 
 	model := New(sender, storage, testConverter)
 
-	err := model.IncomingMessage(Message{
+	err := model.IncomingMessage(ctx, Message{
 		Command:          getExpensesCommand,
 		CommandArguments: "wrong",
 		UserID:           123,
@@ -259,6 +269,7 @@ func TestOnGetExpenseShouldAnswerWithFailMessage(t *testing.T) {
 
 func TestOnRequestCurrencyChangeShouldAnswerWithSuccessMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage(
@@ -271,7 +282,7 @@ func TestOnRequestCurrencyChangeShouldAnswerWithSuccessMessage(t *testing.T) {
 
 	model := New(sender, storage, testConverter)
 
-	err := model.IncomingMessage(Message{
+	err := model.IncomingMessage(ctx, Message{
 		Command:          requestCurrencyChangeCommand,
 		CommandArguments: "",
 		UserID:           123,
@@ -282,6 +293,7 @@ func TestOnRequestCurrencyChangeShouldAnswerWithSuccessMessage(t *testing.T) {
 
 func TestOnSetCurrenctShouldAnswerWithSuccessMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage(
@@ -294,7 +306,7 @@ func TestOnSetCurrenctShouldAnswerWithSuccessMessage(t *testing.T) {
 
 	model := New(sender, storage, testConverter)
 
-	err := model.IncomingMessage(Message{
+	err := model.IncomingMessage(ctx, Message{
 		Command:          setCurrencyCommand,
 		CommandArguments: "USD",
 		UserID:           123,
@@ -305,6 +317,7 @@ func TestOnSetCurrenctShouldAnswerWithSuccessMessage(t *testing.T) {
 
 func TestOnSetCurrenctShouldAnswerWithFailMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage(
@@ -317,7 +330,7 @@ func TestOnSetCurrenctShouldAnswerWithFailMessage(t *testing.T) {
 
 	model := New(sender, storage, testConverter)
 
-	err := model.IncomingMessage(Message{
+	err := model.IncomingMessage(ctx, Message{
 		Command:          setCurrencyCommand,
 		CommandArguments: "FOO",
 		UserID:           123,
@@ -328,6 +341,7 @@ func TestOnSetCurrenctShouldAnswerWithFailMessage(t *testing.T) {
 
 func TestOnSetLimitShouldAnswerWithFailMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage(
@@ -340,7 +354,7 @@ func TestOnSetLimitShouldAnswerWithFailMessage(t *testing.T) {
 
 	model := New(sender, storage, testConverter)
 
-	err := model.IncomingMessage(Message{
+	err := model.IncomingMessage(ctx, Message{
 		Command:          setLimitCommand,
 		CommandArguments: "invalid",
 		UserID:           123,
@@ -351,6 +365,7 @@ func TestOnSetLimitShouldAnswerWithFailMessage(t *testing.T) {
 
 func TestOnSetLimitShouldAnswerWithSuccessMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
+	ctx := context.Background()
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage(
@@ -360,11 +375,11 @@ func TestOnSetLimitShouldAnswerWithSuccessMessage(t *testing.T) {
 	)
 
 	storage := repomocks.NewMockExpensesRepository(ctrl)
-	storage.EXPECT().SetLimit("Дом", int64(1250050))
+	storage.EXPECT().SetLimit(ctx, "Дом", int64(1250050))
 
 	model := New(sender, storage, testConverter)
 
-	err := model.IncomingMessage(Message{
+	err := model.IncomingMessage(ctx, Message{
 		Command:          setLimitCommand,
 		CommandArguments: "Дом;12500.50",
 		UserID:           123,

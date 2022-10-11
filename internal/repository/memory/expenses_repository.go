@@ -1,6 +1,7 @@
 package expenses_memory_repo
 
 import (
+	"context"
 	"strings"
 	"time"
 
@@ -19,13 +20,13 @@ func NewRepository() repo.ExpensesRepository {
 	}
 }
 
-func (r *repository) Add(ex expenses.Expense) error {
+func (r *repository) Add(ctx context.Context, ex expenses.Expense) error {
 	r.expenses = append(r.expenses, &ex)
 
 	return nil
 }
 
-func (r *repository) GetExpenses(p expenses.ExpensePeriod) ([]*expenses.Expense, error) {
+func (r *repository) GetExpenses(ctx context.Context, p expenses.ExpensePeriod) ([]*expenses.Expense, error) {
 	exps := make([]*expenses.Expense, 0, len(r.expenses))
 
 	periodStart := p.GetStart(time.Now())
@@ -39,13 +40,13 @@ func (r *repository) GetExpenses(p expenses.ExpensePeriod) ([]*expenses.Expense,
 	return exps, nil
 }
 
-func (r *repository) SetLimit(category string, amount int64) error {
+func (r *repository) SetLimit(ctx context.Context, category string, amount int64) error {
 	r.limits[strings.ToLower(category)] = amount
 
 	return nil
 }
 
-func (r *repository) GetFreeLimit(category string) (int64, bool, error) {
+func (r *repository) GetFreeLimit(ctx context.Context, category string) (int64, bool, error) {
 	loweredCategory := strings.ToLower(category)
 	if _, ex := r.limits[loweredCategory]; !ex {
 		return 0, false, nil

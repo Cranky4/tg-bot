@@ -39,7 +39,7 @@ func main() {
 	case "memory":
 		repo = memoryrepo.NewRepository()
 	case "sql":
-		repo = sqlrepo.NewRepository(ctx, config.Database())
+		repo = sqlrepo.NewRepository(config.Database())
 	}
 
 	// Загружаем курс валют
@@ -62,7 +62,7 @@ func main() {
 
 	messagesSerbice := servicemessages.New(tgClient, repo, converter)
 
-	tgClient.ListenUpdates(messagesSerbice)
+	tgClient.ListenUpdates(ctx, messagesSerbice)
 
 	log.Println("bye...")
 }

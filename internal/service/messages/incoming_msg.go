@@ -1,6 +1,7 @@
 package servicemessages
 
 import (
+	"context"
 	"fmt"
 	"sort"
 	"strconv"
@@ -73,7 +74,7 @@ type Message struct {
 	UserID           int64
 }
 
-func (m *Model) IncomingMessage(msg Message) error {
+func (m *Model) IncomingMessage(ctx context.Context, msg Message) error {
 	response := "не знаю эту команду"
 	var err error
 	btns := mainMenu
@@ -82,15 +83,15 @@ func (m *Model) IncomingMessage(msg Message) error {
 	case startCommand:
 		response = m.showInfo()
 	case addExpenseCommand:
-		response, err = m.addExpense(msg)
+		response, err = m.addExpense(ctx, msg)
 	case getExpensesCommand:
-		response, err = m.getExpenses(msg)
+		response, err = m.getExpenses(ctx, msg)
 	case requestCurrencyChangeCommand:
 		response, btns = m.requestCurrencyChange()
 	case setCurrencyCommand:
 		response, err = m.setCurrency(msg)
 	case setLimitCommand:
-		response, err = m.setLimit(msg)
+		response, err = m.setLimit(ctx, msg)
 	}
 
 	if err != nil {
@@ -116,63 +117,62 @@ func (m *Model) showInfo() string {
 	}, "")
 }
 
-func (m *Model) addExpense(msg Message) (string, error) {
+func (m *Model) addExpense(ctx context.Context, msg Message) (string, error) {
 	parts := strings.Split(msg.CommandArguments, ";")
-	var responseMsg string
 
 	if len(parts) != 3 {
-		return responseMsg, errors.New(errAddExpenseInvalidParameterMessage)
+		return "", errors.New(errAddExpenseInvalidParameterMessage)
 	}
 
 	trimmedAmount := strings.Trim(parts[0], " ")
 	amount, err := strconv.ParseFloat(trimmedAmount, 32)
 	if err != nil {
-		return responseMsg, fmt.Errorf(errInvalidAmountParameterMessage, trimmedAmount)
+		return "", fmt.Errorf(errInvalidAmountParameterMessage, trimmedAmount)
 	}
 
 	trimmedDatetime := strings.Trim(parts[2], " ")
 	datetime, err := time.Parse(datetimeFormat, trimmedDatetime)
 	if err != nil {
-		return responseMsg, fmt.Errorf(errAddExpenseInvalidDatetimeParameterMessage, trimmedDatetime)
+		return "", fmt.Errorf(errAddExpenseInvalidDatetimeParameterMessage, trimmedDatetime)
 	}
 
 	convertedAmount := m.converter.ToRUB(amount, m.currency)
 
 	trimmedCategory := strings.Trim(parts[1], " ")
-	err = m.storage.Add(expenses.Expense{
+	err = m.storage.Add(ctx, expenses.Expense{
 		Amount:   int64(convertedAmount * primitiveCurrencyMultiplier),
 		Category: trimmedCategory,
 		Datetime: datetime,
 	})
 	if err != nil {
-		return responseMsg, errors.Wrap(err, errSaveExpenseMessage)
+		return "", errors.Wrap(err, errSaveExpenseMessage)
 	}
 
-	freeLimit, hasLimit, err := m.storage.GetFreeLimit(trimmedCategory)
+	freeLimit, hasLimit, err := m.storage.GetFreeLimit(ctx, trimmedCategory)
 	if err != nil {
-		return responseMsg, errors.Wrap(err, errSaveExpenseMessage)
+		return "", errors.Wrap(err, errSaveExpenseMessage)
 	}
+	var responseMsg string
 	responseMsg = msgExpenseAdded
 
 	if hasLimit {
+		var addMsg string
 		convertedFreeLimit := m.converter.FromRUB(float64(freeLimit), m.currency)
 		if freeLimit > 0 {
-			responseMsg = fmt.Sprintf(
-				"%s.\n%s", responseMsg,
-				fmt.Sprintf(msgFreeLimit, convertedFreeLimit/100, m.currency),
-			)
+			addMsg = msgFreeLimit
 		} else {
-			responseMsg = fmt.Sprintf(
-				"%s.\n%s", responseMsg,
-				fmt.Sprintf(msgLimitReached, convertedFreeLimit/100, m.currency),
-			)
+			addMsg = msgLimitReached
 		}
+		responseMsg = fmt.Sprintf(
+			"%s.\n%s", responseMsg,
+			fmt.Sprintf(addMsg, convertedFreeLimit/100, m.currency),
+		)
 	}
 
 	return fmt.Sprintf(responseMsg, amount, m.currency, trimmedCategory, trimmedDatetime), nil
 }
 
-func (m *Model) getExpenses(msg Message) (string, error) {
+func (m *Model) getExpenses(ctx context.Context, msg Message) (string, error) {
 	var expPeriod expenses.ExpensePeriod
 
 	switch msg.CommandArguments {
@@ -189,7 +189,7 @@ func (m *Model) getExpenses(msg Message) (string, error) {
 		expPeriod = expenses.Week
 	}
 
-	expenses, err := m.storage.GetExpenses(expPeriod)
+	expenses, err := m.storage.GetExpenses(ctx, expPeriod)
 	if err != nil {
 		return "", err
 	}
@@ -247,12 +247,11 @@ func (m *Model) setCurrency(msg Message) (string, error) {
 	return fmt.Sprintf(msgCurrencySet, msg.CommandArguments), nil
 }
 
-func (m *Model) setLimit(msg Message) (string, error) {
+func (m *Model) setLimit(ctx context.Context, msg Message) (string, error) {
 	parts := strings.Split(msg.CommandArguments, ";")
-	var responseMsg string
 
 	if len(parts) != 2 {
-		return responseMsg, errors.New(errSetLimitInvalidParameterMessage)
+		return "", errors.New(errSetLimitInvalidParameterMessage)
 	}
 
 	trimmedCategory := strings.Trim(parts[0], " ")
@@ -260,11 +259,11 @@ func (m *Model) setLimit(msg Message) (string, error) {
 	trimmedAmount := strings.Trim(parts[1], " ")
 	amount, err := strconv.ParseFloat(trimmedAmount, 32)
 	if err != nil {
-		return responseMsg, fmt.Errorf(errInvalidAmountParameterMessage, trimmedAmount)
+		return "", fmt.Errorf(errInvalidAmountParameterMessage, trimmedAmount)
 	}
 
 	convertedAmount := m.converter.ToRUB(amount, m.currency)
-	if err := m.storage.SetLimit(trimmedCategory, int64(convertedAmount*primitiveCurrencyMultiplier)); err != nil {
+	if err := m.storage.SetLimit(ctx, trimmedCategory, int64(convertedAmount*primitiveCurrencyMultiplier)); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf(msgSetLimit, convertedAmount, m.currency, trimmedCategory), nil

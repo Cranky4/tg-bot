@@ -1,6 +1,7 @@
 package tg
 
 import (
+	"context"
 	"log"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
@@ -45,7 +46,7 @@ func (c *Client) SendMessage(text string, userID int64, buttons []string) error 
 	return nil
 }
 
-func (c *Client) ListenUpdates(msgModel *servicemessages.Model) {
+func (c *Client) ListenUpdates(ctx context.Context, msgModel *servicemessages.Model) {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 5
 
@@ -57,7 +58,7 @@ func (c *Client) ListenUpdates(msgModel *servicemessages.Model) {
 		if update.Message != nil { // If we got a message
 			log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 
-			err := msgModel.IncomingMessage(servicemessages.Message{
+			err := msgModel.IncomingMessage(ctx, servicemessages.Message{
 				Text:             update.Message.Text,
 				UserID:           update.Message.From.ID,
 				Command:          update.Message.Command(),
