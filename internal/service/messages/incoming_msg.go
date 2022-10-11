@@ -52,18 +52,18 @@ type MessageSender interface {
 }
 
 type Model struct {
-	tgClient  MessageSender
-	storage   repo.ExpensesRepository
-	converter serviceconverter.Converter
-	currency  string
+	tgClient           MessageSender
+	expensesRepository repo.ExpensesRepository
+	converter          serviceconverter.Converter
+	currency           string
 }
 
 func New(tgClient MessageSender, storage repo.ExpensesRepository, conv serviceconverter.Converter) *Model {
 	return &Model{
-		tgClient:  tgClient,
-		storage:   storage,
-		converter: conv,
-		currency:  serviceconverter.RUB,
+		tgClient:           tgClient,
+		expensesRepository: storage,
+		converter:          conv,
+		currency:           serviceconverter.RUB,
 	}
 }
 
@@ -139,7 +139,8 @@ func (m *Model) addExpense(ctx context.Context, msg Message) (string, error) {
 	convertedAmount := m.converter.ToRUB(amount, m.currency)
 
 	trimmedCategory := strings.Trim(parts[1], " ")
-	err = m.storage.Add(ctx, expenses.Expense{
+
+	err = m.expensesRepository.Add(ctx, expenses.Expense{
 		Amount:   int64(convertedAmount * primitiveCurrencyMultiplier),
 		Category: trimmedCategory,
 		Datetime: datetime,
@@ -148,7 +149,7 @@ func (m *Model) addExpense(ctx context.Context, msg Message) (string, error) {
 		return "", errors.Wrap(err, errSaveExpenseMessage)
 	}
 
-	freeLimit, hasLimit, err := m.storage.GetFreeLimit(ctx, trimmedCategory)
+	freeLimit, hasLimit, err := m.expensesRepository.GetFreeLimit(ctx, trimmedCategory)
 	if err != nil {
 		return "", errors.Wrap(err, errSaveExpenseMessage)
 	}
@@ -189,7 +190,7 @@ func (m *Model) getExpenses(ctx context.Context, msg Message) (string, error) {
 		expPeriod = expenses.Week
 	}
 
-	expenses, err := m.storage.GetExpenses(ctx, expPeriod)
+	expenses, err := m.expensesRepository.GetExpenses(ctx, expPeriod)
 	if err != nil {
 		return "", err
 	}
@@ -263,7 +264,7 @@ func (m *Model) setLimit(ctx context.Context, msg Message) (string, error) {
 	}
 
 	convertedAmount := m.converter.ToRUB(amount, m.currency)
-	if err := m.storage.SetLimit(ctx, trimmedCategory, int64(convertedAmount*primitiveCurrencyMultiplier)); err != nil {
+	if err := m.expensesRepository.SetLimit(ctx, trimmedCategory, int64(convertedAmount*primitiveCurrencyMultiplier)); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf(msgSetLimit, convertedAmount, m.currency, trimmedCategory), nil

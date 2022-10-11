@@ -16,7 +16,7 @@ type Config struct {
 }
 
 type StorageConf struct {
-	Driver string `yaml:"driver"`
+	Mode string `yaml:"mode"`
 }
 
 type DatabaseConf struct {

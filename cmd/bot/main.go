@@ -35,11 +35,13 @@ func main() {
 	defer cancel()
 
 	var repo repo.ExpensesRepository
-	switch config.Storage().Driver {
+	switch config.Storage().Mode {
 	case "memory":
 		repo = memoryrepo.NewRepository()
 	case "sql":
 		repo = sqlrepo.NewRepository(config.Database())
+	default:
+		log.Fatalf("unknown repo mode %s", config.Storage())
 	}
 
 	// Загружаем курс валют

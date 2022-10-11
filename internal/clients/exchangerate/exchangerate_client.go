@@ -46,9 +46,8 @@ func (g *exchRatesGetter) Get(ctx context.Context) (Rates, error) {
 	if err != nil {
 		return Rates{}, err
 	}
-	var bodyCloseErr error
 	defer func() {
-		bodyCloseErr = res.Body.Close()
+		err = res.Body.Close()
 	}()
 
 	var result exchangeResponse
@@ -56,5 +55,5 @@ func (g *exchRatesGetter) Get(ctx context.Context) (Rates, error) {
 		return Rates{}, err
 	}
 
-	return result.Rates, bodyCloseErr
+	return result.Rates, err
 }

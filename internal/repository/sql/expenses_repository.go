@@ -58,7 +58,7 @@ func NewRepository(conf config.DatabaseConf) repo.ExpensesRepository {
 	}
 }
 
-func (r *repository) ensureDBConnected() error {
+func (r *repository) Connect() error {
 	if r.db != nil {
 		return nil
 	}
@@ -80,7 +80,7 @@ func (r *repository) ensureDBConnected() error {
 func (r *repository) Add(ctx context.Context, ex expenses.Expense) error {
 	var err error
 
-	if err = r.ensureDBConnected(); err != nil {
+	if err = r.Connect(); err != nil {
 		return err
 	}
 
@@ -105,11 +105,7 @@ func (r *repository) Add(ctx context.Context, ex expenses.Expense) error {
 	if !found {
 		category, err = r.createNewCategory(ctx, tx, ex.Category)
 		if err != nil {
-			if tErr := tx.Rollback(); tErr != nil {
-				return errors.Wrap(tErr, cannotRollbackTransactionErrMsg)
-			}
 			return errors.Wrap(err, addExpenseErrMsg)
-
 		}
 	}
 	ex.CategoryID = category.ID
@@ -122,7 +118,7 @@ func (r *repository) Add(ctx context.Context, ex expenses.Expense) error {
 }
 
 func (r *repository) GetExpenses(ctx context.Context, p expenses.ExpensePeriod) ([]*expenses.Expense, error) {
-	if err := r.ensureDBConnected(); err != nil {
+	if err := r.Connect(); err != nil {
 		return []*expenses.Expense{}, err
 	}
 
@@ -137,7 +133,7 @@ func (r *repository) GetExpenses(ctx context.Context, p expenses.ExpensePeriod) 
 func (r *repository) SetLimit(ctx context.Context, categoryName string, amount int64) error {
 	var err error
 
-	if err = r.ensureDBConnected(); err != nil {
+	if err = r.Connect(); err != nil {
 		return err
 	}
 
@@ -174,7 +170,7 @@ func (r *repository) SetLimit(ctx context.Context, categoryName string, amount i
 }
 
 func (r *repository) GetFreeLimit(ctx context.Context, categoryName string) (int64, bool, error) {
-	if err := r.ensureDBConnected(); err != nil {
+	if err := r.Connect(); err != nil {
 		return 0, false, err
 	}
 
