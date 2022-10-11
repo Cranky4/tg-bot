@@ -18,7 +18,7 @@ import (
 
 const dateFormat = "2006-01-02 15:04:05"
 
-var _ = Describe("Create new event via HTTP", Ordered, func() {
+var _ = Describe("Testing SQL queries", Ordered, func() {
 	dsn := os.Getenv("TEST_DB_DSN")
 
 	db, er := sql.Open("pgx", dsn)
