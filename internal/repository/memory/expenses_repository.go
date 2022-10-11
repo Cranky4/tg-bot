@@ -1,0 +1,67 @@
+package expenses_memory_repo
+
+import (
+	"strings"
+	"time"
+
+	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/utils/expenses"
+)
+
+type repository struct {
+	expenses []*expenses.Expense
+	limits   map[string]int64
+}
+
+func NewRepository() repo.ExpensesRepository {
+	return &repository{
+		limits: make(map[string]int64),
+	}
+}
+
+func (r *repository) Add(ex expenses.Expense) error {
+	r.expenses = append(r.expenses, &ex)
+
+	return nil
+}
+
+func (r *repository) GetExpenses(p expenses.ExpensePeriod) ([]*expenses.Expense, error) {
+	exps := make([]*expenses.Expense, 0, len(r.expenses))
+
+	periodStart := p.GetStart(time.Now())
+
+	for i := 0; i < len(r.expenses); i++ {
+		if r.expenses[i].Datetime.After(periodStart) {
+			exps = append(exps, r.expenses[i])
+		}
+	}
+
+	return exps, nil
+}
+
+func (r *repository) SetLimit(category string, amount int64) error {
+	r.limits[strings.ToLower(category)] = amount
+
+	return nil
+}
+
+func (r *repository) GetFreeLimit(category string) (int64, bool, error) {
+	loweredCategory := strings.ToLower(category)
+	if _, ex := r.limits[loweredCategory]; !ex {
+		return 0, false, nil
+	}
+
+	year, month, _ := time.Now().Date()
+	loc := time.Now().Location()
+	beginingOfMonth := time.Date(year, month, 0, 0, 0, 0, 0, loc)
+
+	var total int64
+	for i := 0; i < len(r.expenses); i++ {
+		if strings.ToLower(r.expenses[i].Category) == loweredCategory &&
+			r.expenses[i].Datetime.After(beginingOfMonth) {
+			total += r.expenses[i].Amount
+		}
+	}
+
+	return r.limits[loweredCategory] - total, true, nil
+}

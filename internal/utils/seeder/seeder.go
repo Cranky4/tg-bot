@@ -10,7 +10,7 @@ import (
 
 	faker "github.com/go-faker/faker/v4"
 	"github.com/pkg/errors"
-	iternalexpenses "gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
+	iternalexpenses "gitlab.ozon.dev/cranky4/tg-bot/internal/utils/expenses"
 )
 
 const (
@@ -79,7 +79,7 @@ func (s *dbSeeder) SeedExpenses(ctx context.Context, expensesCount, categoriesCo
 		expenses = append(expenses, iternalexpenses.Expense{
 			ID:         faker.UUIDHyphenated(),
 			CategoryID: categories[rand.Intn(categoriesCount)].ID,
-			Amount:     rand.Intn(99999) + 1,
+			Amount:     rand.Int63n(99999) + 1,
 			Datetime:   time.Unix(rand.Int63n(3600*24*365)+minDatetime, 0),
 		})
 	}

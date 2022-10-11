@@ -6,7 +6,7 @@ import (
 
 type Expense struct {
 	ID         string
-	Amount     int // копейки
+	Amount     int64 // копейки
 	Category   string
 	CategoryID string
 	Datetime   time.Time

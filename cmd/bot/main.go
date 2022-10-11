@@ -11,10 +11,11 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/tg"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/converter"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/messages"
-	memorystorage "gitlab.ozon.dev/cranky4/tg-bot/internal/model/storage/memory"
-	sqlstorage "gitlab.ozon.dev/cranky4/tg-bot/internal/model/storage/sql"
+	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
+	memoryrepo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository/memory"
+	sqlrepo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository/sql"
+	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
+	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
 )
 
 func main() {
@@ -28,17 +29,17 @@ func main() {
 		log.Fatal("tg client init failed:", err)
 	}
 
-	converter := converter.NewConverter(exchangerate.NewGetter())
+	converter := serviceconverter.NewConverter(exchangerate.NewGetter())
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()
 
-	var storage messages.Storage
+	var repo repo.ExpensesRepository
 	switch config.Storage().Driver {
 	case "memory":
-		storage = memorystorage.NewStorage()
+		repo = memoryrepo.NewRepository()
 	case "sql":
-		storage = sqlstorage.NewStorage(ctx, config.Database())
+		repo = sqlrepo.NewRepository(ctx, config.Database())
 	}
 
 	// Загружаем курс валют
@@ -59,9 +60,9 @@ func main() {
 		log.Println("receiving stopped...")
 	}(ctx)
 
-	msgModel := messages.New(tgClient, storage, converter)
+	messagesSerbice := servicemessages.New(tgClient, repo, converter)
 
-	tgClient.ListenUpdates(msgModel)
+	tgClient.ListenUpdates(messagesSerbice)
 
 	log.Println("bye...")
 }

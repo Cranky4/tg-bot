@@ -1,15 +1,15 @@
-package memorystorage
+package expenses_memory_repo
 
 import (
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/utils/expenses"
 )
 
 func TestStorageShouldAddExpensesToStorage(t *testing.T) {
-	storage := NewStorage()
+	storage := NewRepository()
 
 	exps, err := storage.GetExpenses(expenses.Week)
 	assert.Len(t, exps, 0)
@@ -70,7 +70,7 @@ func TestStorageShouldAddExpensesToStorage(t *testing.T) {
 }
 
 func TestStorageShouldSetLimitAndReachedIt(t *testing.T) {
-	storage := NewStorage()
+	storage := NewRepository()
 	now := time.Now()
 	category := "Кофе"
 
@@ -91,7 +91,7 @@ func TestStorageShouldSetLimitAndReachedIt(t *testing.T) {
 	freeLimit, isSet, err := storage.GetFreeLimit(category)
 	assert.NoError(t, err)
 	assert.False(t, isSet)
-	assert.Equal(t, 0, freeLimit)
+	assert.Equal(t, int64(0), freeLimit)
 
 	err = storage.SetLimit(category, 25000)
 	assert.NoError(t, err)
@@ -99,7 +99,7 @@ func TestStorageShouldSetLimitAndReachedIt(t *testing.T) {
 	freeLimit, isSet, err = storage.GetFreeLimit(category)
 	assert.NoError(t, err)
 	assert.True(t, isSet)
-	assert.Equal(t, 13000, freeLimit)
+	assert.Equal(t, int64(13000), freeLimit)
 
 	err = storage.Add(expenses.Expense{
 		Amount:   12000,
@@ -111,7 +111,7 @@ func TestStorageShouldSetLimitAndReachedIt(t *testing.T) {
 	freeLimit, isSet, err = storage.GetFreeLimit(category)
 	assert.NoError(t, err)
 	assert.True(t, isSet)
-	assert.Equal(t, 1000, freeLimit)
+	assert.Equal(t, int64(1000), freeLimit)
 
 	err = storage.Add(expenses.Expense{
 		Amount:   12000,
@@ -123,5 +123,5 @@ func TestStorageShouldSetLimitAndReachedIt(t *testing.T) {
 	freeLimit, isSet, err = storage.GetFreeLimit(category)
 	assert.NoError(t, err)
 	assert.True(t, isSet)
-	assert.Equal(t, -11000, freeLimit)
+	assert.Equal(t, int64(-11000), freeLimit)
 }

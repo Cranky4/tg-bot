@@ -1,7 +1,7 @@
 token:
 
 storage:
-  driver: "memory" # "sql"
+  mode: "memory" # "sql"
 
 database:
   dsn: postgres://tg_bot_user:secret@localhost:5432/tg_bot

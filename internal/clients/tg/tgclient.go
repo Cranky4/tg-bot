@@ -5,7 +5,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/pkg/errors"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/messages"
+	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
 )
 
 type TokenGetter interface {
@@ -45,7 +45,7 @@ func (c *Client) SendMessage(text string, userID int64, buttons []string) error 
 	return nil
 }
 
-func (c *Client) ListenUpdates(msgModel *messages.Model) {
+func (c *Client) ListenUpdates(msgModel *servicemessages.Model) {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 5
 
@@ -57,7 +57,7 @@ func (c *Client) ListenUpdates(msgModel *messages.Model) {
 		if update.Message != nil { // If we got a message
 			log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
 
-			err := msgModel.IncomingMessage(messages.Message{
+			err := msgModel.IncomingMessage(servicemessages.Message{
 				Text:             update.Message.Text,
 				UserID:           update.Message.From.ID,
 				Command:          update.Message.Command(),

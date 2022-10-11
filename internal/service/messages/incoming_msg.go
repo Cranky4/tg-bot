@@ -1,4 +1,4 @@
-package messages
+package servicemessages
 
 import (
 	"fmt"
@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/converter"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
+	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
+	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/utils/expenses"
 )
 
 const (
@@ -51,25 +52,18 @@ type MessageSender interface {
 
 type Model struct {
 	tgClient  MessageSender
-	storage   Storage
-	converter converter.Converter
+	storage   repo.ExpensesRepository
+	converter serviceconverter.Converter
 	currency  string
 }
 
-func New(tgClient MessageSender, storage Storage, conv converter.Converter) *Model {
+func New(tgClient MessageSender, storage repo.ExpensesRepository, conv serviceconverter.Converter) *Model {
 	return &Model{
 		tgClient:  tgClient,
 		storage:   storage,
 		converter: conv,
-		currency:  converter.RUB,
+		currency:  serviceconverter.RUB,
 	}
-}
-
-type Storage interface {
-	Add(expense expenses.Expense) error
-	GetExpenses(period expenses.ExpensePeriod) ([]*expenses.Expense, error)
-	SetLimit(category string, amount int) error
-	GetFreeLimit(category string) (int, bool, error)
 }
 
 type Message struct {
@@ -146,7 +140,7 @@ func (m *Model) addExpense(msg Message) (string, error) {
 
 	trimmedCategory := strings.Trim(parts[1], " ")
 	err = m.storage.Add(expenses.Expense{
-		Amount:   int(convertedAmount * primitiveCurrencyMultiplier),
+		Amount:   int64(convertedAmount * primitiveCurrencyMultiplier),
 		Category: trimmedCategory,
 		Datetime: datetime,
 	})
@@ -200,7 +194,7 @@ func (m *Model) getExpenses(msg Message) (string, error) {
 		return "", err
 	}
 
-	result := make(map[string]int) // [категория]сумма
+	result := make(map[string]int64) // [категория]сумма
 
 	for _, e := range expenses {
 		result[e.Category] += e.Amount
@@ -270,7 +264,7 @@ func (m *Model) setLimit(msg Message) (string, error) {
 	}
 
 	convertedAmount := m.converter.ToRUB(amount, m.currency)
-	if err := m.storage.SetLimit(trimmedCategory, int(convertedAmount*primitiveCurrencyMultiplier)); err != nil {
+	if err := m.storage.SetLimit(trimmedCategory, int64(convertedAmount*primitiveCurrencyMultiplier)); err != nil {
 		return "", err
 	}
 	return fmt.Sprintf(msgSetLimit, convertedAmount, m.currency, trimmedCategory), nil

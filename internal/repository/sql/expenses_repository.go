@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/expenses"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/messages"
+	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/utils/expenses"
 )
 
 const (
@@ -39,10 +39,10 @@ const (
 	upsertLimitErrMsg               = "ошибка в методе upsertLimit"
 	limitReachedErrMsg              = "ошибка в методе limitReached"
 	freeLimitErrMsg                 = "ошибка в методе findFreeLimit"
-	cannotRollbackTransactionErrMsg = ""
+	cannotRollbackTransactionErrMsg = "ошибка отката транзакции"
 )
 
-type storage struct {
+type repository struct {
 	ctx context.Context
 	dsn string
 	db  *sql.DB
@@ -53,25 +53,25 @@ type storage struct {
 	freeLimitStmt          *sql.Stmt
 }
 
-func NewStorage(ctx context.Context, conf config.DatabaseConf) messages.Storage {
-	return &storage{
+func NewRepository(ctx context.Context, conf config.DatabaseConf) repo.ExpensesRepository {
+	return &repository{
 		ctx: ctx,
 		dsn: conf.Dsn,
 	}
 }
 
-func (s *storage) ensureDBConnected() error {
-	if s.db != nil {
+func (r *repository) ensureDBConnected() error {
+	if r.db != nil {
 		return nil
 	}
 
-	db, err := sql.Open("pgx", s.dsn)
+	db, err := sql.Open("pgx", r.dsn)
 	if err != nil {
 		return err
 	}
-	s.db = db
+	r.db = db
 
-	err = s.db.Ping()
+	err = r.db.Ping()
 	if err != nil {
 		return err
 	}
@@ -79,19 +79,19 @@ func (s *storage) ensureDBConnected() error {
 	return nil
 }
 
-func (s *storage) Add(ex expenses.Expense) error {
+func (r *repository) Add(ex expenses.Expense) error {
 	var err error
 
-	if err = s.ensureDBConnected(); err != nil {
+	if err = r.ensureDBConnected(); err != nil {
 		return err
 	}
 
-	category, found, err := s.findCategory(ex.Category)
+	category, found, err := r.findCategory(ex.Category)
 	if err != nil {
 		return errors.Wrap(err, addExpenseErrMsg)
 	}
 
-	tx, err := s.db.BeginTx(s.ctx, &sql.TxOptions{})
+	tx, err := r.db.BeginTx(r.ctx, &sql.TxOptions{})
 	if err != nil {
 		return errors.Wrap(err, addExpenseErrMsg)
 	}
@@ -105,7 +105,7 @@ func (s *storage) Add(ex expenses.Expense) error {
 	}()
 
 	if !found {
-		category, err = s.createNewCategory(tx, ex.Category)
+		category, err = r.createNewCategory(tx, ex.Category)
 		if err != nil {
 			if tErr := tx.Rollback(); tErr != nil {
 				return errors.Wrap(tErr, cannotRollbackTransactionErrMsg)
@@ -116,19 +116,19 @@ func (s *storage) Add(ex expenses.Expense) error {
 	}
 	ex.CategoryID = category.ID
 
-	if err = s.createExpense(tx, ex); err != nil {
+	if err = r.createExpense(tx, ex); err != nil {
 		return errors.Wrap(err, addExpenseErrMsg)
 	}
 
 	return err
 }
 
-func (s *storage) GetExpenses(p expenses.ExpensePeriod) ([]*expenses.Expense, error) {
-	if err := s.ensureDBConnected(); err != nil {
+func (r *repository) GetExpenses(p expenses.ExpensePeriod) ([]*expenses.Expense, error) {
+	if err := r.ensureDBConnected(); err != nil {
 		return []*expenses.Expense{}, err
 	}
 
-	exps, err := s.findExpenses(p.GetStart(time.Now()))
+	exps, err := r.findExpenses(p.GetStart(time.Now()))
 	if err != nil {
 		return []*expenses.Expense{}, errors.Wrap(err, getExpensesErrMsg)
 	}
@@ -136,14 +136,14 @@ func (s *storage) GetExpenses(p expenses.ExpensePeriod) ([]*expenses.Expense, er
 	return exps, nil
 }
 
-func (s *storage) SetLimit(categoryName string, amount int) error {
+func (r *repository) SetLimit(categoryName string, amount int64) error {
 	var err error
 
-	if err = s.ensureDBConnected(); err != nil {
+	if err = r.ensureDBConnected(); err != nil {
 		return err
 	}
 
-	tx, err := s.db.BeginTx(s.ctx, &sql.TxOptions{})
+	tx, err := r.db.BeginTx(r.ctx, &sql.TxOptions{})
 	if err != nil {
 		return errors.Wrap(err, setLimitErrMsg)
 	}
@@ -156,31 +156,31 @@ func (s *storage) SetLimit(categoryName string, amount int) error {
 		}
 	}()
 
-	category, found, err := s.findCategory(categoryName)
+	category, found, err := r.findCategory(categoryName)
 	if err != nil {
 		return errors.Wrap(err, setLimitErrMsg)
 	}
 
 	if !found {
-		category, err = s.createNewCategory(tx, categoryName)
+		category, err = r.createNewCategory(tx, categoryName)
 		if err != nil {
 			return errors.Wrap(err, setLimitErrMsg)
 		}
 	}
 
-	if err = s.upsertLimit(tx, category.ID, amount); err != nil {
+	if err = r.upsertLimit(tx, category.ID, amount); err != nil {
 		return errors.Wrap(err, setLimitErrMsg)
 	}
 
 	return err
 }
 
-func (s *storage) GetFreeLimit(categoryName string) (int, bool, error) {
-	if err := s.ensureDBConnected(); err != nil {
+func (r *repository) GetFreeLimit(categoryName string) (int64, bool, error) {
+	if err := r.ensureDBConnected(); err != nil {
 		return 0, false, err
 	}
 
-	category, found, err := s.findCategory(categoryName)
+	category, found, err := r.findCategory(categoryName)
 	if err != nil {
 		return 0, false, errors.Wrap(err, limitReachedErrMsg)
 	}
@@ -189,19 +189,19 @@ func (s *storage) GetFreeLimit(categoryName string) (int, bool, error) {
 		return 0, false, nil
 	}
 
-	return s.findFreeLimit(category.ID)
+	return r.findFreeLimit(category.ID)
 }
 
-func (s *storage) findCategory(categoryName string) (expenses.ExpenseCategory, bool, error) {
-	if s.categorySearchStmt == nil {
-		stmt, err := s.db.PrepareContext(s.ctx, expenseCategorySearchSQL)
+func (r *repository) findCategory(categoryName string) (expenses.ExpenseCategory, bool, error) {
+	if r.categorySearchStmt == nil {
+		stmt, err := r.db.PrepareContext(r.ctx, expenseCategorySearchSQL)
 		if err != nil {
 			return expenses.ExpenseCategory{}, false, errors.Wrap(err, findCategoryErrMsg)
 		}
-		s.categorySearchStmt = stmt
+		r.categorySearchStmt = stmt
 	}
 
-	row := s.categorySearchStmt.QueryRowContext(s.ctx, categoryName)
+	row := r.categorySearchStmt.QueryRowContext(r.ctx, categoryName)
 
 	if errors.Is(row.Err(), sql.ErrNoRows) {
 		return expenses.ExpenseCategory{}, false, nil
@@ -220,13 +220,13 @@ func (s *storage) findCategory(categoryName string) (expenses.ExpenseCategory, b
 	}, true, nil
 }
 
-func (s *storage) createNewCategory(tx *sql.Tx, categoryName string) (expenses.ExpenseCategory, error) {
+func (r *repository) createNewCategory(tx *sql.Tx, categoryName string) (expenses.ExpenseCategory, error) {
 	id, err := uuid.NewUUID()
 	if err != nil {
 		return expenses.ExpenseCategory{}, errors.Wrap(err, createNewCategoryErrMsg)
 	}
 
-	if _, err = tx.ExecContext(s.ctx, expenseCategoryInsertSQL, id.String(), categoryName); err != nil {
+	if _, err = tx.ExecContext(r.ctx, expenseCategoryInsertSQL, id.String(), categoryName); err != nil {
 		return expenses.ExpenseCategory{}, errors.Wrap(err, createNewCategoryErrMsg)
 	}
 
@@ -236,29 +236,29 @@ func (s *storage) createNewCategory(tx *sql.Tx, categoryName string) (expenses.E
 	}, nil
 }
 
-func (s *storage) createExpense(tx *sql.Tx, ex expenses.Expense) error {
+func (r *repository) createExpense(tx *sql.Tx, ex expenses.Expense) error {
 	id, err := uuid.NewUUID()
 	if err != nil {
 		return errors.Wrap(err, createNewExpenseErrMsg)
 	}
 
-	if _, err = tx.ExecContext(s.ctx, expensesInsertSQL, id.String(), ex.Amount, ex.Datetime, ex.CategoryID); err != nil {
+	if _, err = tx.ExecContext(r.ctx, expensesInsertSQL, id.String(), ex.Amount, ex.Datetime, ex.CategoryID); err != nil {
 		return errors.Wrap(err, createNewExpenseErrMsg)
 	}
 
 	return nil
 }
 
-func (s *storage) findCountExpenses(from time.Time) (int, error) {
-	if s.expenseSelectCountStmt == nil {
-		stmt, err := s.db.PrepareContext(s.ctx, expensesSelectCountSQL)
+func (r *repository) findCountExpenses(from time.Time) (int, error) {
+	if r.expenseSelectCountStmt == nil {
+		stmt, err := r.db.PrepareContext(r.ctx, expensesSelectCountSQL)
 		if err != nil {
 			return 0, errors.Wrap(err, expenseSelectCountErrMsg)
 		}
-		s.expenseSelectCountStmt = stmt
+		r.expenseSelectCountStmt = stmt
 	}
 
-	row := s.expenseSelectCountStmt.QueryRowContext(s.ctx, from)
+	row := r.expenseSelectCountStmt.QueryRowContext(r.ctx, from)
 	if errors.Is(row.Err(), sql.ErrNoRows) {
 		return 0, nil
 	} else if row.Err() != nil {
@@ -273,21 +273,21 @@ func (s *storage) findCountExpenses(from time.Time) (int, error) {
 	return count, nil
 }
 
-func (s *storage) findExpenses(from time.Time) ([]*expenses.Expense, error) {
-	if s.expenseSelectStmt == nil {
-		stmt, err := s.db.PrepareContext(s.ctx, expensesSelectSQL)
+func (r *repository) findExpenses(from time.Time) ([]*expenses.Expense, error) {
+	if r.expenseSelectStmt == nil {
+		stmt, err := r.db.PrepareContext(r.ctx, expensesSelectSQL)
 		if err != nil {
 			return []*expenses.Expense{}, errors.Wrap(err, expenseSelectErrMsg)
 		}
-		s.expenseSelectStmt = stmt
+		r.expenseSelectStmt = stmt
 	}
 
-	count, err := s.findCountExpenses(from)
+	count, err := r.findCountExpenses(from)
 	if err != nil {
 		return []*expenses.Expense{}, err
 	}
 
-	rows, err := s.expenseSelectStmt.QueryContext(s.ctx, from)
+	rows, err := r.expenseSelectStmt.QueryContext(r.ctx, from)
 	if err != nil {
 		return []*expenses.Expense{}, errors.Wrap(err, expenseSelectErrMsg)
 	}
@@ -300,7 +300,7 @@ func (s *storage) findExpenses(from time.Time) ([]*expenses.Expense, error) {
 
 	for rows.Next() {
 		var id, categoryID, categoryName string
-		var amount int
+		var amount int64
 		var datetime time.Time
 
 		if err = rows.Scan(&id, &amount, &datetime, &categoryID, &categoryName); err != nil {
@@ -319,30 +319,30 @@ func (s *storage) findExpenses(from time.Time) ([]*expenses.Expense, error) {
 	return exps, nil
 }
 
-func (s *storage) upsertLimit(tx *sql.Tx, categoryID string, amount int) error {
-	if _, err := tx.ExecContext(s.ctx, upsertLimitSQL, categoryID, amount); err != nil {
+func (r *repository) upsertLimit(tx *sql.Tx, categoryID string, amount int64) error {
+	if _, err := tx.ExecContext(r.ctx, upsertLimitSQL, categoryID, amount); err != nil {
 		return errors.Wrap(err, upsertLimitErrMsg)
 	}
 
 	return nil
 }
 
-func (s *storage) findFreeLimit(categoryID string) (int, bool, error) {
-	if s.freeLimitStmt == nil {
-		stmt, err := s.db.PrepareContext(s.ctx, freeLimitSQL)
+func (r *repository) findFreeLimit(categoryID string) (int64, bool, error) {
+	if r.freeLimitStmt == nil {
+		stmt, err := r.db.PrepareContext(r.ctx, freeLimitSQL)
 		if err != nil {
 			return 0, false, errors.Wrap(err, freeLimitErrMsg)
 		}
-		s.freeLimitStmt = stmt
+		r.freeLimitStmt = stmt
 	}
 
-	row := s.freeLimitStmt.QueryRowContext(s.ctx, categoryID)
+	row := r.freeLimitStmt.QueryRowContext(r.ctx, categoryID)
 
 	if errors.Is(row.Err(), sql.ErrNoRows) {
 		return 0, false, nil
 	}
 
-	var freeLimit int
+	var freeLimit int64
 	if err := row.Scan(&freeLimit); err != nil {
 		return 0, true, errors.Wrap(err, freeLimitErrMsg)
 	}

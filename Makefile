@@ -13,6 +13,9 @@ TG_BOT_DB_PASSWORD="secret"
 TG_BOT_DB_HOST="localhost"
 TG_BOT_DB_PORT="5432"
 
+.PHONY: test-coverage
+
+
 all: format build test lint
 
 build: bindir
@@ -20,6 +23,8 @@ build: bindir
 
 test:
 	go test ./...
+test-coverage:
+	go test ./... -coverprofile=coverage.out && go tool cover -html=coverage.out
 
 run:
 	go run ${PACKAGE}
@@ -29,8 +34,11 @@ run-seeder:
 
 generate: install-mockgen
 	${MOCKGEN} \
-		-source=internal/model/messages/incoming_msg.go \
-		-destination=internal/mocks/messages/messages_mocks.go
+		-source=internal/service/messages/incoming_msg.go \
+		-destination=internal/service/messages/mocks/messages_mocks.go
+	${MOCKGEN} \
+		-source=internal/repository/expenses.go \
+		-destination=internal/repository/mocks/expenses_repo_mocks.go
 
 lint: install-lint
 	${LINTBIN} run

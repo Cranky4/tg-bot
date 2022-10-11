@@ -20,7 +20,8 @@ type StorageConf struct {
 }
 
 type DatabaseConf struct {
-	Dsn string `yaml:"dsn"`
+	Dsn      string `yaml:"dsn"`
+	MaxTries int    `yaml:"maxTries"`
 }
 
 type Service struct {
