@@ -1,0 +1,37 @@
+version: "3"
+
+services:
+  postgres:
+    container_name: postgres
+    image: 'postgres:14-alpine'
+    environment: 
+      POSTGRES_DB: '${TG_BOT_DB:-tg_bot}'
+      POSTGRES_USER: '${TG_BOT_DB_USER:-tg_bot_user}'
+      POSTGRES_PASSWORD: '${TG_BOT_DB_PASSWORD:-secret}'
+      PGDATA: '/var/lib/postgresql/data'
+  
+  migrator:
+    container_name: migrator
+    build:
+      context: ../
+      dockerfile: ./build/Migrator.dockerfile
+    depends_on:
+      - postgres
+    volumes:
+      - '../migrations:/go/migrations:ro'
+    environment:
+      CODE_DIR: '/go/migrations'
+      GOOSE_DRIVER: 'postgres'
+      GOOSE_DBSTRING: 'host=postgres user=${TG_BOT_DB_USER:-tg_bot_user} password=${TG_BOT_DB_PASSWORD:-secret} dbname=${TG_BOT_DB:-tg_bot} port=5432'
+
+  tester:
+    container_name: bot_integration_tester
+    build:
+      context: ../
+      dockerfile: ./build/Tester.dockerfile
+    depends_on:
+      - migrator
+    environment:
+      TEST_DB_DSN: postgres://${TG_BOT_DB_USER:-tg_bot_user}:${TG_BOT_DB_PASSWORD:-secret}@postgres:5432/${TG_BOT_DB:-tg_bot}
+    volumes:
+      - '../:/go/src/'

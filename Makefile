@@ -22,7 +22,7 @@ build: bindir
 	go build -o ${BINDIR}/bot ${PACKAGE}
 
 test:
-	go test ./...
+	go test ./internal/...
 test-coverage:
 	go test ./... -coverprofile=coverage.out && go tool cover -html=coverage.out
 
@@ -89,3 +89,13 @@ migrate: install-goose
 
 migrate-down: install-goose	
 	 goose -dir ./migrations postgres "host=${TG_BOT_DB_HOST} user=${TG_BOT_DB_USER} password=${TG_BOT_DB_PASSWORD} dbname=${TG_BOT_DB} port=${TG_BOT_DB_PORT} sslmode=disable" down
+
+integration-tests: 
+	docker-compose -f deployments/docker-compose.test.yml up -d --build
+	echo "optimistic waiting for docker ready" && sleep 2
+	docker-compose -f deployments/docker-compose.test.yml run tester ginkgo || docker-compose -f deployments/docker-compose.test.yml down --remove-orphans
+	docker-compose -f deployments/docker-compose.test.yml down --remove-orphans
+
+install-ginkgo:
+	go get github.com/onsi/ginkgo/v2/ginkgo
+	go get github.com/onsi/gomega/...

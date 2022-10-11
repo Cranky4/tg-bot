@@ -17,7 +17,7 @@ const (
 	expenseCategoryInsertSQL = "INSERT INTO expense_categories(id, name) VALUES ($1, $2)"
 	expensesInsertSQL        = "INSERT INTO expenses(id, amount, datetime, category_id) VALUES ($1,$2,$3,$4)"
 	expensesSelectSQL        = "SELECT e.id, e.amount, e.datetime, c.id as categoryId, c.name FROM expenses e " +
-		"INNER JOIN expense_categories c ON e.category_id = c.id WHERE datetime > $1"
+		"INNER JOIN expense_categories c ON e.category_id = c.id WHERE datetime > $1 ORDER BY e.created_at DESC"
 	expensesSelectCountSQL = "SELECT COUNT(id) FROM expenses WHERE datetime > $1"
 	upsertLimitSQL         = `INSERT INTO expenses_limits (category_id, amount) 
 		VALUES($1,$2) ON CONFLICT (category_id) 
@@ -188,7 +188,7 @@ func (r *repository) GetFreeLimit(ctx context.Context, categoryName string) (int
 
 func (r *repository) findCategory(ctx context.Context, categoryName string) (expenses.ExpenseCategory, bool, error) {
 	if r.categorySearchStmt == nil {
-		stmt, err := r.db.PrepareContext(ctx, expenseCategorySearchSQL)
+		stmt, err := r.db.PrepareContext(ctx, GetExpenseCategorySearchSQL())
 		if err != nil {
 			return expenses.ExpenseCategory{}, false, errors.Wrap(err, findCategoryErrMsg)
 		}
@@ -220,7 +220,7 @@ func (r *repository) createNewCategory(ctx context.Context, tx *sql.Tx, category
 		return expenses.ExpenseCategory{}, errors.Wrap(err, createNewCategoryErrMsg)
 	}
 
-	if _, err = tx.ExecContext(ctx, expenseCategoryInsertSQL, id.String(), categoryName); err != nil {
+	if _, err = tx.ExecContext(ctx, GetExpenseCategoryInsertSQL(), id.String(), categoryName); err != nil {
 		return expenses.ExpenseCategory{}, errors.Wrap(err, createNewCategoryErrMsg)
 	}
 
@@ -236,7 +236,7 @@ func (r *repository) createExpense(ctx context.Context, tx *sql.Tx, ex expenses.
 		return errors.Wrap(err, createNewExpenseErrMsg)
 	}
 
-	if _, err = tx.ExecContext(ctx, expensesInsertSQL, id.String(), ex.Amount, ex.Datetime, ex.CategoryID); err != nil {
+	if _, err = tx.ExecContext(ctx, GetExpensesInsertSQL(), id.String(), ex.Amount, ex.Datetime, ex.CategoryID); err != nil {
 		return errors.Wrap(err, createNewExpenseErrMsg)
 	}
 
@@ -245,7 +245,7 @@ func (r *repository) createExpense(ctx context.Context, tx *sql.Tx, ex expenses.
 
 func (r *repository) findCountExpenses(ctx context.Context, from time.Time) (int, error) {
 	if r.expenseSelectCountStmt == nil {
-		stmt, err := r.db.PrepareContext(ctx, expensesSelectCountSQL)
+		stmt, err := r.db.PrepareContext(ctx, GetExpensesSelectCountSQL())
 		if err != nil {
 			return 0, errors.Wrap(err, expenseSelectCountErrMsg)
 		}
@@ -269,7 +269,7 @@ func (r *repository) findCountExpenses(ctx context.Context, from time.Time) (int
 
 func (r *repository) findExpenses(ctx context.Context, from time.Time) ([]*expenses.Expense, error) {
 	if r.expenseSelectStmt == nil {
-		stmt, err := r.db.PrepareContext(ctx, expensesSelectSQL)
+		stmt, err := r.db.PrepareContext(ctx, GetExpensesSelectSQL())
 		if err != nil {
 			return []*expenses.Expense{}, errors.Wrap(err, expenseSelectErrMsg)
 		}
@@ -314,7 +314,7 @@ func (r *repository) findExpenses(ctx context.Context, from time.Time) ([]*expen
 }
 
 func (r *repository) upsertLimit(ctx context.Context, tx *sql.Tx, categoryID string, amount int64) error {
-	if _, err := tx.ExecContext(ctx, upsertLimitSQL, categoryID, amount); err != nil {
+	if _, err := tx.ExecContext(ctx, GetUpsertLimitSQL(), categoryID, amount); err != nil {
 		return errors.Wrap(err, upsertLimitErrMsg)
 	}
 
@@ -323,7 +323,7 @@ func (r *repository) upsertLimit(ctx context.Context, tx *sql.Tx, categoryID str
 
 func (r *repository) findFreeLimit(ctx context.Context, categoryID string) (int64, bool, error) {
 	if r.freeLimitStmt == nil {
-		stmt, err := r.db.PrepareContext(ctx, freeLimitSQL)
+		stmt, err := r.db.PrepareContext(ctx, GetFreeLimitSQL())
 		if err != nil {
 			return 0, false, errors.Wrap(err, freeLimitErrMsg)
 		}
@@ -342,4 +342,32 @@ func (r *repository) findFreeLimit(ctx context.Context, categoryID string) (int6
 	}
 
 	return freeLimit, true, nil
+}
+
+func GetExpenseCategorySearchSQL() string {
+	return expenseCategorySearchSQL
+}
+
+func GetExpenseCategoryInsertSQL() string {
+	return expenseCategoryInsertSQL
+}
+
+func GetExpensesInsertSQL() string {
+	return expensesInsertSQL
+}
+
+func GetExpensesSelectSQL() string {
+	return expensesSelectSQL
+}
+
+func GetExpensesSelectCountSQL() string {
+	return expensesSelectCountSQL
+}
+
+func GetUpsertLimitSQL() string {
+	return upsertLimitSQL
+}
+
+func GetFreeLimitSQL() string {
+	return freeLimitSQL
 }
