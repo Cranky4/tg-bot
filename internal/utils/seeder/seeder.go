@@ -10,7 +10,7 @@ import (
 
 	faker "github.com/go-faker/faker/v4"
 	"github.com/pkg/errors"
-	iternalexpenses "gitlab.ozon.dev/cranky4/tg-bot/internal/utils/expenses"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 )
 
 const (
@@ -64,19 +64,19 @@ func (s *dbSeeder) SeedExpenses(ctx context.Context, expensesCount, categoriesCo
 		return errors.Wrap(err, cannotConnectToDB)
 	}
 
-	categories := make([]iternalexpenses.ExpenseCategory, 0, categoriesCount)
+	categories := make([]model.ExpenseCategory, 0, categoriesCount)
 	for i := 0; i < categoriesCount; i++ {
-		categories = append(categories, iternalexpenses.ExpenseCategory{
+		categories = append(categories, model.ExpenseCategory{
 			ID:   faker.UUIDHyphenated(),
 			Name: faker.Word(),
 		})
 	}
 
-	expenses := make([]iternalexpenses.Expense, 0, expensesCount)
+	expenses := make([]model.Expense, 0, expensesCount)
 	for i := 0; i < expensesCount; i++ {
 		minDatetime := time.Now().AddDate(-1, 0, 0).Unix()
 
-		expenses = append(expenses, iternalexpenses.Expense{
+		expenses = append(expenses, model.Expense{
 			ID:         faker.UUIDHyphenated(),
 			CategoryID: categories[rand.Intn(categoriesCount)].ID,
 			Amount:     rand.Int63n(99999) + 1,
@@ -112,7 +112,7 @@ func (s *dbSeeder) SeedExpenses(ctx context.Context, expensesCount, categoriesCo
 	return err
 }
 
-func insertCategories(ctx context.Context, count int, categories []iternalexpenses.ExpenseCategory, tx *sql.Tx) error {
+func insertCategories(ctx context.Context, count int, categories []model.ExpenseCategory, tx *sql.Tx) error {
 	valuesPlaceholders := make([]string, 0, count)
 	paramsCount := 2
 	values := make([]interface{}, 0, count*paramsCount)
@@ -125,7 +125,7 @@ func insertCategories(ctx context.Context, count int, categories []iternalexpens
 	return doBatchInsert(ctx, tx, expenseCategoryInsertSQL, valuesPlaceholders, values)
 }
 
-func insertExpenses(ctx context.Context, count int, categories []iternalexpenses.Expense, tx *sql.Tx) error {
+func insertExpenses(ctx context.Context, count int, categories []model.Expense, tx *sql.Tx) error {
 	valuesPlaceholders := make([]string, 0, count)
 	paramsCount := 4
 	values := make([]interface{}, 0, count*paramsCount)

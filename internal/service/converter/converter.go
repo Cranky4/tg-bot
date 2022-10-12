@@ -13,7 +13,7 @@ const (
 	CNY = "CNY"
 	RUB = "RUB"
 
-	precisionFactor = 10000 // конвертация валют идут с точностью до 0.0001
+	precisionFactor = 10000 // конвертация валют идет с точностью до 0.0001
 )
 
 type Converter interface {

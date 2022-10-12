@@ -5,12 +5,12 @@ import (
 	"strings"
 	"time"
 
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/utils/expenses"
 )
 
 type repository struct {
-	expenses []*expenses.Expense
+	expenses []*model.Expense
 	limits   map[string]int64
 }
 
@@ -20,14 +20,14 @@ func NewRepository() repo.ExpensesRepository {
 	}
 }
 
-func (r *repository) Add(ctx context.Context, ex expenses.Expense) error {
+func (r *repository) Add(ctx context.Context, ex model.Expense) error {
 	r.expenses = append(r.expenses, &ex)
 
 	return nil
 }
 
-func (r *repository) GetExpenses(ctx context.Context, p expenses.ExpensePeriod) ([]*expenses.Expense, error) {
-	exps := make([]*expenses.Expense, 0, len(r.expenses))
+func (r *repository) GetExpenses(ctx context.Context, p model.ExpensePeriod) ([]*model.Expense, error) {
+	exps := make([]*model.Expense, 0, len(r.expenses))
 
 	periodStart := p.GetStart(time.Now())
 

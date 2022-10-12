@@ -7,30 +7,25 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/assert"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
-	repomocks "gitlab.ozon.dev/cranky4/tg-bot/internal/repository/mocks"
-	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
+	expense_service "gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense"
+	expsmocks "gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense/mocks"
 	msgmocks "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages/mocks"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/utils/expenses"
 )
 
-type testGetter struct{}
-
-func (g *testGetter) Get(ctx context.Context) (exchangerate.Rates, error) {
-	return exchangerate.Rates{
-		USD: 2,
-		EUR: 3,
-		CNY: 4,
-	}, nil
+var currencies = map[string]struct{}{
+	"USD": {},
+	"RUB": {},
+	"EUR": {},
+	"CNY": {},
 }
-
-var testConverter = serviceconverter.NewConverter(&testGetter{})
 
 func TestOnStartCommandShouldAnswerWithIntroMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sender := msgmocks.NewMockMessageSender(ctrl)
-	storage := repomocks.NewMockExpensesRepository(ctrl)
-	model := New(sender, storage, testConverter)
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
+	model := New(sender, currencies, processor, reporter)
 	ctx := context.Background()
 
 	msg := "Привет, я буду считать твои деньги. Вот что я умею:\n" +
@@ -57,11 +52,12 @@ func TestOnStartCommandShouldAnswerWithIntroMessage(t *testing.T) {
 func TestOnUnknownCommandShouldAnswerWithHelpMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("не знаю эту команду", int64(123), mainMenu)
-	storage := repomocks.NewMockExpensesRepository(ctrl)
-	model := New(sender, storage, testConverter)
+	model := New(sender, currencies, processor, reporter)
 
 	err := model.IncomingMessage(ctx, Message{
 		Text:   "some text",
@@ -74,23 +70,20 @@ func TestOnUnknownCommandShouldAnswerWithHelpMessage(t *testing.T) {
 func TestOnAddExpenseShouldAnswerWithSuccessMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("Трата 125.50 RUB добавлена в категорию Кофе с датой 2022-10-01 12:56:00",
 		int64(123), mainMenu)
 
-	storage := repomocks.NewMockExpensesRepository(ctrl)
 	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
 	assert.NoError(t, err)
 
-	storage.EXPECT().Add(ctx, expenses.Expense{
-		Amount:   12550,
-		Category: "Кофе",
-		Datetime: date,
-	})
-	storage.EXPECT().GetFreeLimit(ctx, "Кофе")
+	processor.EXPECT().AddExpense(ctx, 125.5, "RUB", "Кофе", date)
+	processor.EXPECT().GetFreeLimit(ctx, "Кофе", "RUB")
 
-	model := New(sender, storage, testConverter)
+	model := New(sender, currencies, processor, reporter)
 
 	err = model.IncomingMessage(ctx, Message{
 		Command:          addExpenseCommand,
@@ -110,19 +103,15 @@ func TestOnAddExpenseWithLimitSetShouldAnswerWithSuccessMessage(t *testing.T) {
 		"Свободный месячный лимит 10.00 RUB",
 		int64(123), mainMenu)
 
-	storage := repomocks.NewMockExpensesRepository(ctrl)
-
 	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
 	assert.NoError(t, err)
 
-	storage.EXPECT().Add(ctx, expenses.Expense{
-		Amount:   12550,
-		Category: "Кофе",
-		Datetime: date,
-	})
-	storage.EXPECT().GetFreeLimit(ctx, "Кофе").Return(int64(1000), true, nil)
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
+	processor.EXPECT().AddExpense(ctx, 125.50, "RUB", "Кофе", date)
+	processor.EXPECT().GetFreeLimit(ctx, "Кофе", "RUB").Return(10.00, true, nil)
 
-	model := New(sender, storage, testConverter)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
+	model := New(sender, currencies, processor, reporter)
 
 	err = model.IncomingMessage(ctx, Message{
 		Command:          addExpenseCommand,
@@ -142,19 +131,15 @@ func TestOnAddExpenseWithLimitReachedShouldAnswerWithSuccessMessage(t *testing.T
 		"Достигнут месячный лимит (-12.00 RUB)",
 		int64(123), mainMenu)
 
-	storage := repomocks.NewMockExpensesRepository(ctrl)
-
 	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
 	assert.NoError(t, err)
 
-	storage.EXPECT().Add(ctx, expenses.Expense{
-		Amount:   12550,
-		Category: "Кофе",
-		Datetime: date,
-	})
-	storage.EXPECT().GetFreeLimit(ctx, "Кофе").Return(int64(-1200), true, nil)
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
+	processor.EXPECT().AddExpense(ctx, 125.50, "RUB", "Кофе", date)
+	processor.EXPECT().GetFreeLimit(ctx, "Кофе", "RUB").Return(-12.00, true, nil)
 
-	model := New(sender, storage, testConverter)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
+	model := New(sender, currencies, processor, reporter)
 
 	err = model.IncomingMessage(ctx, Message{
 		Command:          addExpenseCommand,
@@ -174,8 +159,9 @@ func TestOnAddExpenseShouldAnswerWithFailMessage(t *testing.T) {
 		"Ожидается: Сумма;Категория;Дата \n"+
 		"Например: 120.50;Дом;2022-10-01 13:25:23", int64(123), mainMenu)
 
-	storage := repomocks.NewMockExpensesRepository(ctrl)
-	model := New(sender, storage, testConverter)
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
+	model := New(sender, currencies, processor, reporter)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command: addExpenseCommand,
@@ -192,10 +178,11 @@ func TestOnGetWeekExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("Недельный бюджет:\nпусто\n", int64(123), mainMenu)
 
-	storage := repomocks.NewMockExpensesRepository(ctrl)
-	storage.EXPECT().GetExpenses(ctx, expenses.Week)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
+	reporter.EXPECT().GetReport(ctx, model.Week, "RUB").Return(&expense_service.ExpenseReport{IsEmpty: true}, nil)
 
-	model := New(sender, storage, testConverter)
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
+	model := New(sender, currencies, processor, reporter)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command: getExpensesCommand,
@@ -212,10 +199,12 @@ func TestOnGetMonthExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("Месячный бюджет:\nпусто\n", int64(123), mainMenu)
 
-	storage := repomocks.NewMockExpensesRepository(ctrl)
-	storage.EXPECT().GetExpenses(ctx, expenses.Month)
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
 
-	model := New(sender, storage, testConverter)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
+	reporter.EXPECT().GetReport(ctx, model.Month, "RUB").Return(&expense_service.ExpenseReport{IsEmpty: true}, nil)
+
+	model := New(sender, currencies, processor, reporter)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          getExpensesCommand,
@@ -233,10 +222,12 @@ func TestOnGetYearExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("Годовой бюджет:\nпусто\n", int64(123), mainMenu)
 
-	storage := repomocks.NewMockExpensesRepository(ctrl)
-	storage.EXPECT().GetExpenses(ctx, expenses.Year)
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
 
-	model := New(sender, storage, testConverter)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
+	reporter.EXPECT().GetReport(ctx, model.Year, "RUB").Return(&expense_service.ExpenseReport{IsEmpty: true}, nil)
+
+	model := New(sender, currencies, processor, reporter)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          getExpensesCommand,
@@ -253,10 +244,10 @@ func TestOnGetExpenseShouldAnswerWithFailMessage(t *testing.T) {
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("неверный период. Ожидается: year, month, week. По-умолчанию week", int64(123), mainMenu)
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
 
-	storage := repomocks.NewMockExpensesRepository(ctrl)
-
-	model := New(sender, storage, testConverter)
+	model := New(sender, currencies, processor, reporter)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          getExpensesCommand,
@@ -277,10 +268,10 @@ func TestOnRequestCurrencyChangeShouldAnswerWithSuccessMessage(t *testing.T) {
 		int64(123),
 		[]string{"/setCurrency CNY", "/setCurrency EUR", "/setCurrency RUB", "/setCurrency USD"},
 	)
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
 
-	storage := repomocks.NewMockExpensesRepository(ctrl)
-
-	model := New(sender, storage, testConverter)
+	model := New(sender, currencies, processor, reporter)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          requestCurrencyChangeCommand,
@@ -301,10 +292,10 @@ func TestOnSetCurrenctShouldAnswerWithSuccessMessage(t *testing.T) {
 		int64(123),
 		mainMenu,
 	)
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
 
-	storage := repomocks.NewMockExpensesRepository(ctrl)
-
-	model := New(sender, storage, testConverter)
+	model := New(sender, currencies, processor, reporter)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          setCurrencyCommand,
@@ -326,9 +317,10 @@ func TestOnSetCurrenctShouldAnswerWithFailMessage(t *testing.T) {
 		mainMenu,
 	)
 
-	storage := repomocks.NewMockExpensesRepository(ctrl)
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
 
-	model := New(sender, storage, testConverter)
+	model := New(sender, currencies, processor, reporter)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          setCurrencyCommand,
@@ -350,9 +342,10 @@ func TestOnSetLimitShouldAnswerWithFailMessage(t *testing.T) {
 		mainMenu,
 	)
 
-	storage := repomocks.NewMockExpensesRepository(ctrl)
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
 
-	model := New(sender, storage, testConverter)
+	model := New(sender, currencies, processor, reporter)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          setLimitCommand,
@@ -374,10 +367,12 @@ func TestOnSetLimitShouldAnswerWithSuccessMessage(t *testing.T) {
 		mainMenu,
 	)
 
-	storage := repomocks.NewMockExpensesRepository(ctrl)
-	storage.EXPECT().SetLimit(ctx, "Дом", int64(1250050))
+	processor := expsmocks.NewMockExpenseProcessor(ctrl)
+	reporter := expsmocks.NewMockExpenseReporter(ctrl)
 
-	model := New(sender, storage, testConverter)
+	processor.EXPECT().SetLimit(ctx, "Дом", 12500.50, "RUB").Return(12500.50, nil)
+
+	model := New(sender, currencies, processor, reporter)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          setLimitCommand,

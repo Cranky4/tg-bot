@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/utils/expenses"
+	expense_service "gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense"
 )
 
 const (
@@ -19,10 +19,10 @@ const (
 		"Например: 120.50;Дом;2022-10-01 13:25:23"
 	errInvalidAmountParameterMessage             = "неверное значение суммы: %v"
 	errAddExpenseInvalidDatetimeParameterMessage = "неверный формат даты и времени: %v. Ожидается 2022-01-28 15:10:11"
-	errSaveExpenseMessage                        = "ошибка сохранения траты"
-	errUnknownCurrency                           = "неизвестная валюта %s"
-	errGetExpensesInvalidPeriodMessage           = "неверный период. Ожидается: year, month, week. По-умолчанию week"
-	errSetLimitInvalidParameterMessage           = "неверное количество параметров.\nОжидается: Категория;Сумма \n" +
+
+	errUnknownCurrency                 = "неизвестная валюта %s"
+	errGetExpensesInvalidPeriodMessage = "неверный период. Ожидается: year, month, week. По-умолчанию week"
+	errSetLimitInvalidParameterMessage = "неверное количество параметров.\nОжидается: Категория;Сумма \n" +
 		"Например: Дом;12000.50"
 	msgExpenseAdded = "Трата %.02f %s добавлена в категорию %s с датой %s"
 	msgCurrencySet  = "Установлена валюта в %s"
@@ -38,8 +38,6 @@ const (
 	requestCurrencyChangeCommand = "requestCurrencyChange"
 	setCurrencyCommand           = "setCurrency"
 	setLimitCommand              = "setLimit"
-
-	primitiveCurrencyMultiplier = 100
 )
 
 var mainMenu = []string{
@@ -52,18 +50,25 @@ type MessageSender interface {
 }
 
 type Model struct {
-	tgClient           MessageSender
-	expensesRepository repo.ExpensesRepository
-	converter          serviceconverter.Converter
-	currency           string
+	tgClient         MessageSender
+	currencies       map[string]struct{}
+	expenseProcessor expense_service.ExpenseProcessor
+	expenseReporter  expense_service.ExpenseReporter
+	currency         string
 }
 
-func New(tgClient MessageSender, storage repo.ExpensesRepository, conv serviceconverter.Converter) *Model {
+func New(
+	tgClient MessageSender,
+	currencies map[string]struct{},
+	expenseProcessor expense_service.ExpenseProcessor,
+	expenseReporter expense_service.ExpenseReporter,
+) *Model {
 	return &Model{
-		tgClient:           tgClient,
-		expensesRepository: storage,
-		converter:          conv,
-		currency:           serviceconverter.RUB,
+		tgClient:         tgClient,
+		currencies:       currencies,
+		currency:         serviceconverter.RUB,
+		expenseProcessor: expenseProcessor,
+		expenseReporter:  expenseReporter,
 	}
 }
 
@@ -136,29 +141,23 @@ func (m *Model) addExpense(ctx context.Context, msg Message) (string, error) {
 		return "", fmt.Errorf(errAddExpenseInvalidDatetimeParameterMessage, trimmedDatetime)
 	}
 
-	convertedAmount := m.converter.ToRUB(amount, m.currency)
-
 	trimmedCategory := strings.Trim(parts[1], " ")
 
-	err = m.expensesRepository.Add(ctx, expenses.Expense{
-		Amount:   int64(convertedAmount * primitiveCurrencyMultiplier),
-		Category: trimmedCategory,
-		Datetime: datetime,
-	})
-	if err != nil {
-		return "", errors.Wrap(err, errSaveExpenseMessage)
+	if _, err = m.expenseProcessor.AddExpense(ctx, amount, m.currency, trimmedCategory, datetime); err != nil {
+		return "", err
 	}
 
-	freeLimit, hasLimit, err := m.expensesRepository.GetFreeLimit(ctx, trimmedCategory)
+	freeLimit, hasLimit, err := m.expenseProcessor.GetFreeLimit(ctx, trimmedCategory, m.currency)
 	if err != nil {
-		return "", errors.Wrap(err, errSaveExpenseMessage)
+		return "", err
 	}
+
 	var responseMsg string
 	responseMsg = msgExpenseAdded
 
 	if hasLimit {
 		var addMsg string
-		convertedFreeLimit := m.converter.FromRUB(float64(freeLimit), m.currency)
+
 		if freeLimit > 0 {
 			addMsg = msgFreeLimit
 		} else {
@@ -166,7 +165,7 @@ func (m *Model) addExpense(ctx context.Context, msg Message) (string, error) {
 		}
 		responseMsg = fmt.Sprintf(
 			"%s.\n%s", responseMsg,
-			fmt.Sprintf(addMsg, convertedFreeLimit/100, m.currency),
+			fmt.Sprintf(addMsg, freeLimit, m.currency),
 		)
 	}
 
@@ -174,31 +173,25 @@ func (m *Model) addExpense(ctx context.Context, msg Message) (string, error) {
 }
 
 func (m *Model) getExpenses(ctx context.Context, msg Message) (string, error) {
-	var expPeriod expenses.ExpensePeriod
+	var expPeriod model.ExpensePeriod
 
 	switch msg.CommandArguments {
 	case "week":
-		expPeriod = expenses.Week
+		expPeriod = model.Week
 	case "month":
-		expPeriod = expenses.Month
+		expPeriod = model.Month
 	case "year":
-		expPeriod = expenses.Year
+		expPeriod = model.Year
 	default:
 		if msg.CommandArguments != "" {
 			return "", errors.New(errGetExpensesInvalidPeriodMessage)
 		}
-		expPeriod = expenses.Week
+		expPeriod = model.Week
 	}
 
-	expenses, err := m.expensesRepository.GetExpenses(ctx, expPeriod)
+	report, err := m.expenseReporter.GetReport(ctx, expPeriod, m.currency)
 	if err != nil {
 		return "", err
-	}
-
-	result := make(map[string]int64) // [категория]сумма
-
-	for _, e := range expenses {
-		result[e.Category] += e.Amount
 	}
 
 	var reporter strings.Builder
@@ -207,14 +200,12 @@ func (m *Model) getExpenses(ctx context.Context, msg Message) (string, error) {
 	)
 	defer reporter.Reset()
 
-	if len(result) == 0 {
+	if report.IsEmpty {
 		reporter.WriteString("пусто\n")
 	}
 
-	for category, amount := range result {
-		converted := m.converter.FromRUB(float64(amount/primitiveCurrencyMultiplier), m.currency)
-
-		if _, err := reporter.WriteString(fmt.Sprintf("%s - %.02f %s\n", category, converted, m.currency)); err != nil {
+	for category, amount := range report.Rows {
+		if _, err := reporter.WriteString(fmt.Sprintf("%s - %.02f %s\n", category, amount, m.currency)); err != nil {
 			return "", err
 		}
 	}
@@ -223,9 +214,8 @@ func (m *Model) getExpenses(ctx context.Context, msg Message) (string, error) {
 }
 
 func (m *Model) requestCurrencyChange() (string, []string) {
-	currs := m.converter.GetAvailableCurrencies()
-	currencies := make([]string, 0, len(currs))
-	for c := range m.converter.GetAvailableCurrencies() {
+	currencies := make([]string, 0, len(m.currencies))
+	for c := range m.currencies {
 		currencies = append(currencies, strings.Join([]string{"/", setCurrencyCommand, " ", c}, ""))
 	}
 
@@ -237,9 +227,7 @@ func (m *Model) requestCurrencyChange() (string, []string) {
 }
 
 func (m *Model) setCurrency(msg Message) (string, error) {
-	currencies := m.converter.GetAvailableCurrencies()
-
-	if _, found := currencies[msg.CommandArguments]; !found {
+	if _, found := m.currencies[msg.CommandArguments]; !found {
 		return "", fmt.Errorf(errUnknownCurrency, msg.CommandArguments)
 	}
 
@@ -263,8 +251,8 @@ func (m *Model) setLimit(ctx context.Context, msg Message) (string, error) {
 		return "", fmt.Errorf(errInvalidAmountParameterMessage, trimmedAmount)
 	}
 
-	convertedAmount := m.converter.ToRUB(amount, m.currency)
-	if err := m.expensesRepository.SetLimit(ctx, trimmedCategory, int64(convertedAmount*primitiveCurrencyMultiplier)); err != nil {
+	convertedAmount, err := m.expenseProcessor.SetLimit(ctx, trimmedCategory, amount, m.currency)
+	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf(msgSetLimit, convertedAmount, m.currency, trimmedCategory), nil

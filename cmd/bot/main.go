@@ -15,6 +15,7 @@ import (
 	memoryrepo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository/memory"
 	sqlrepo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository/sql"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
+	expense_service "gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense"
 	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
 )
 
@@ -62,7 +63,12 @@ func main() {
 		log.Println("receiving stopped...")
 	}(ctx)
 
-	messagesSerbice := servicemessages.New(tgClient, repo, converter)
+	messagesSerbice := servicemessages.New(
+		tgClient,
+		converter.GetAvailableCurrencies(),
+		expense_service.NewProcessor(repo, converter),
+		expense_service.NewReporter(repo, converter),
+	)
 
 	tgClient.ListenUpdates(ctx, messagesSerbice)
 

@@ -39,6 +39,12 @@ generate: install-mockgen
 	${MOCKGEN} \
 		-source=internal/repository/expenses.go \
 		-destination=internal/repository/mocks/expenses_repo_mocks.go
+	${MOCKGEN} \
+		-source=internal/service/expense/expense_processor.go \
+		-destination=internal/service/expense/mocks/expense_processor_mocks.go
+	${MOCKGEN} \
+		-source=internal/service/expense/expense_reporter.go \
+		-destination=internal/service/expense/mocks/expense_reporter_mocks.go
 
 lint: install-lint
 	${LINTBIN} run

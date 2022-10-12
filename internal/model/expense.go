@@ -1,8 +1,6 @@
-package expenses
+package model
 
-import (
-	"time"
-)
+import "time"
 
 type Expense struct {
 	ID         string

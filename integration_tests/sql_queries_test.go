@@ -9,8 +9,8 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 	expenses_sql_repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository/sql"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/utils/expenses"
 
 	// init pgsql.
 	_ "github.com/jackc/pgx/stdlib"
@@ -30,7 +30,7 @@ var _ = Describe("Testing SQL queries", Ordered, func() {
 		Fail(er.Error())
 	}
 
-	category := expenses.ExpenseCategory{
+	category := model.ExpenseCategory{
 		ID:   categoryID.String(),
 		Name: "Дом",
 	}
@@ -39,7 +39,7 @@ var _ = Describe("Testing SQL queries", Ordered, func() {
 	if er != nil {
 		Fail(er.Error())
 	}
-	expense1 := expenses.Expense{
+	expense1 := model.Expense{
 		ID:         expenseID1.String(),
 		Amount:     10000,
 		Datetime:   time.Now(),
@@ -51,7 +51,7 @@ var _ = Describe("Testing SQL queries", Ordered, func() {
 	if er != nil {
 		Fail(er.Error())
 	}
-	expense2 := expenses.Expense{
+	expense2 := model.Expense{
 		ID:         expenseID2.String(),
 		Amount:     10000,
 		Datetime:   time.Now(),

@@ -9,7 +9,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
-	expenses "gitlab.ozon.dev/cranky4/tg-bot/internal/utils/expenses"
+	model "gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 )
 
 // MockExpensesRepository is a mock of ExpensesRepository interface.
@@ -36,7 +36,7 @@ func (m *MockExpensesRepository) EXPECT() *MockExpensesRepositoryMockRecorder {
 }
 
 // Add mocks base method.
-func (m *MockExpensesRepository) Add(ctx context.Context, expense expenses.Expense) error {
+func (m *MockExpensesRepository) Add(ctx context.Context, expense model.Expense) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Add", ctx, expense)
 	ret0, _ := ret[0].(error)
@@ -50,10 +50,10 @@ func (mr *MockExpensesRepositoryMockRecorder) Add(ctx, expense interface{}) *gom
 }
 
 // GetExpenses mocks base method.
-func (m *MockExpensesRepository) GetExpenses(ctx context.Context, period expenses.ExpensePeriod) ([]*expenses.Expense, error) {
+func (m *MockExpensesRepository) GetExpenses(ctx context.Context, period model.ExpensePeriod) ([]*model.Expense, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetExpenses", ctx, period)
-	ret0, _ := ret[0].([]*expenses.Expense)
+	ret0, _ := ret[0].([]*model.Expense)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

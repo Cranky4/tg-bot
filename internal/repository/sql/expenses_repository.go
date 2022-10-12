@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/utils/expenses"
 )
 
 const (
@@ -77,7 +77,7 @@ func (r *repository) Connect() error {
 	return nil
 }
 
-func (r *repository) Add(ctx context.Context, ex expenses.Expense) error {
+func (r *repository) Add(ctx context.Context, ex model.Expense) error {
 	var err error
 
 	if err = r.Connect(); err != nil {
@@ -117,14 +117,14 @@ func (r *repository) Add(ctx context.Context, ex expenses.Expense) error {
 	return err
 }
 
-func (r *repository) GetExpenses(ctx context.Context, p expenses.ExpensePeriod) ([]*expenses.Expense, error) {
+func (r *repository) GetExpenses(ctx context.Context, p model.ExpensePeriod) ([]*model.Expense, error) {
 	if err := r.Connect(); err != nil {
-		return []*expenses.Expense{}, err
+		return []*model.Expense{}, err
 	}
 
 	exps, err := r.findExpenses(ctx, p.GetStart(time.Now()))
 	if err != nil {
-		return []*expenses.Expense{}, errors.Wrap(err, getExpensesErrMsg)
+		return []*model.Expense{}, errors.Wrap(err, getExpensesErrMsg)
 	}
 
 	return exps, nil
@@ -186,11 +186,11 @@ func (r *repository) GetFreeLimit(ctx context.Context, categoryName string) (int
 	return r.findFreeLimit(ctx, category.ID)
 }
 
-func (r *repository) findCategory(ctx context.Context, categoryName string) (expenses.ExpenseCategory, bool, error) {
+func (r *repository) findCategory(ctx context.Context, categoryName string) (model.ExpenseCategory, bool, error) {
 	if r.categorySearchStmt == nil {
 		stmt, err := r.db.PrepareContext(ctx, GetExpenseCategorySearchSQL())
 		if err != nil {
-			return expenses.ExpenseCategory{}, false, errors.Wrap(err, findCategoryErrMsg)
+			return model.ExpenseCategory{}, false, errors.Wrap(err, findCategoryErrMsg)
 		}
 		r.categorySearchStmt = stmt
 	}
@@ -198,39 +198,39 @@ func (r *repository) findCategory(ctx context.Context, categoryName string) (exp
 	row := r.categorySearchStmt.QueryRowContext(ctx, categoryName)
 
 	if errors.Is(row.Err(), sql.ErrNoRows) {
-		return expenses.ExpenseCategory{}, false, nil
+		return model.ExpenseCategory{}, false, nil
 	} else if row.Err() != nil {
-		return expenses.ExpenseCategory{}, false, errors.Wrap(row.Err(), findCategoryErrMsg)
+		return model.ExpenseCategory{}, false, errors.Wrap(row.Err(), findCategoryErrMsg)
 	}
 
 	var id, name string
 	if err := row.Scan(&id, &name); err != nil {
-		return expenses.ExpenseCategory{}, false, errors.Wrap(row.Err(), findCategoryErrMsg)
+		return model.ExpenseCategory{}, false, errors.Wrap(row.Err(), findCategoryErrMsg)
 	}
 
-	return expenses.ExpenseCategory{
+	return model.ExpenseCategory{
 		ID:   id,
 		Name: name,
 	}, true, nil
 }
 
-func (r *repository) createNewCategory(ctx context.Context, tx *sql.Tx, categoryName string) (expenses.ExpenseCategory, error) {
+func (r *repository) createNewCategory(ctx context.Context, tx *sql.Tx, categoryName string) (model.ExpenseCategory, error) {
 	id, err := uuid.NewUUID()
 	if err != nil {
-		return expenses.ExpenseCategory{}, errors.Wrap(err, createNewCategoryErrMsg)
+		return model.ExpenseCategory{}, errors.Wrap(err, createNewCategoryErrMsg)
 	}
 
 	if _, err = tx.ExecContext(ctx, GetExpenseCategoryInsertSQL(), id.String(), categoryName); err != nil {
-		return expenses.ExpenseCategory{}, errors.Wrap(err, createNewCategoryErrMsg)
+		return model.ExpenseCategory{}, errors.Wrap(err, createNewCategoryErrMsg)
 	}
 
-	return expenses.ExpenseCategory{
+	return model.ExpenseCategory{
 		ID:   id.String(),
 		Name: categoryName,
 	}, nil
 }
 
-func (r *repository) createExpense(ctx context.Context, tx *sql.Tx, ex expenses.Expense) error {
+func (r *repository) createExpense(ctx context.Context, tx *sql.Tx, ex model.Expense) error {
 	id, err := uuid.NewUUID()
 	if err != nil {
 		return errors.Wrap(err, createNewExpenseErrMsg)
@@ -267,30 +267,30 @@ func (r *repository) findCountExpenses(ctx context.Context, from time.Time) (int
 	return count, nil
 }
 
-func (r *repository) findExpenses(ctx context.Context, from time.Time) ([]*expenses.Expense, error) {
+func (r *repository) findExpenses(ctx context.Context, from time.Time) ([]*model.Expense, error) {
 	if r.expenseSelectStmt == nil {
 		stmt, err := r.db.PrepareContext(ctx, GetExpensesSelectSQL())
 		if err != nil {
-			return []*expenses.Expense{}, errors.Wrap(err, expenseSelectErrMsg)
+			return []*model.Expense{}, errors.Wrap(err, expenseSelectErrMsg)
 		}
 		r.expenseSelectStmt = stmt
 	}
 
 	count, err := r.findCountExpenses(ctx, from)
 	if err != nil {
-		return []*expenses.Expense{}, err
+		return []*model.Expense{}, err
 	}
 
 	rows, err := r.expenseSelectStmt.QueryContext(ctx, from)
 	if err != nil {
-		return []*expenses.Expense{}, errors.Wrap(err, expenseSelectErrMsg)
+		return []*model.Expense{}, errors.Wrap(err, expenseSelectErrMsg)
 	}
 
 	defer func() {
 		err = rows.Close()
 	}()
 
-	exps := make([]*expenses.Expense, 0, count)
+	exps := make([]*model.Expense, 0, count)
 
 	for rows.Next() {
 		var id, categoryID, categoryName string
@@ -298,10 +298,10 @@ func (r *repository) findExpenses(ctx context.Context, from time.Time) ([]*expen
 		var datetime time.Time
 
 		if err = rows.Scan(&id, &amount, &datetime, &categoryID, &categoryName); err != nil {
-			return []*expenses.Expense{}, errors.Wrap(err, expenseSelectErrMsg)
+			return []*model.Expense{}, errors.Wrap(err, expenseSelectErrMsg)
 		}
 
-		exps = append(exps, &expenses.Expense{
+		exps = append(exps, &model.Expense{
 			ID:         id,
 			Amount:     amount,
 			Datetime:   datetime,
