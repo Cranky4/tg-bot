@@ -13,19 +13,19 @@ import (
 )
 
 const (
-	expenseCategorySearchSQL = "SELECT id, name FROM expense_categories WHERE name ILIKE $1 LIMIT 1"
-	expenseCategoryInsertSQL = "INSERT INTO expense_categories(id, name) VALUES ($1, $2)"
+	ExpenseCategorySearchSQL = "SELECT id, name FROM expense_categories WHERE name ILIKE $1 LIMIT 1"
+	ExpenseCategoryInsertSQL = "INSERT INTO expense_categories(id, name) VALUES ($1, $2)"
 
-	expensesInsertSQL = "INSERT INTO expenses(id, amount, datetime, category_id, user_id) VALUES ($1,$2,$3,$4,$5)"
-	expensesSelectSQL = "SELECT e.id, e.amount, e.datetime, c.id as categoryId, c.name, e.user_id " +
+	ExpensesInsertSQL = "INSERT INTO expenses(id, amount, datetime, category_id, user_id) VALUES ($1,$2,$3,$4,$5)"
+	ExpensesSelectSQL = "SELECT e.id, e.amount, e.datetime, c.id as categoryId, c.name, e.user_id " +
 		"FROM expenses e INNER JOIN expense_categories c ON e.category_id = c.id " +
 		"WHERE e.datetime > $1 AND e.user_id = $2 ORDER BY e.created_at DESC"
 
-	expensesSelectCountSQL = "SELECT COUNT(id) FROM expenses WHERE datetime > $1 AND user_id = $2"
-	upsertLimitSQL         = `INSERT INTO expenses_limits (category_id, amount, user_id) 
+	ExpensesSelectCountSQL = "SELECT COUNT(id) FROM expenses WHERE datetime > $1 AND user_id = $2"
+	UpsertLimitSQL         = `INSERT INTO expenses_limits (category_id, amount, user_id) 
 		VALUES($1,$2,$3) ON CONFLICT (category_id, user_id) 
 		DO UPDATE SET amount = EXCLUDED.amount`
-	freeLimitSQL = `SELECT el.amount - SUM(e.amount) FROM expenses e
+	FreeLimitSQL = `SELECT el.amount - SUM(e.amount) FROM expenses e
 		LEFT JOIN expenses_limits el ON e.category_id = el.category_id AND e.user_id = el.user_id
 		WHERE e.category_id = $1 AND e.datetime >= date_trunc('month', now()) AND e.user_id = $2
 		GROUP BY el.category_id, el.user_id;
@@ -156,7 +156,7 @@ func (r *repository) GetFreeLimit(ctx context.Context, categoryName string, user
 
 func (r *repository) findCategory(ctx context.Context, categoryName string) (model.ExpenseCategory, bool, error) {
 	if r.categorySearchStmt == nil {
-		stmt, err := r.db.PrepareContext(ctx, GetExpenseCategorySearchSQL())
+		stmt, err := r.db.PrepareContext(ctx, ExpenseCategorySearchSQL)
 		if err != nil {
 			return model.ExpenseCategory{}, false, errors.Wrap(err, findCategoryErrMsg)
 		}
@@ -188,7 +188,7 @@ func (r *repository) createNewCategory(ctx context.Context, tx *sql.Tx, category
 		return model.ExpenseCategory{}, errors.Wrap(err, createNewCategoryErrMsg)
 	}
 
-	if _, err = tx.ExecContext(ctx, GetExpenseCategoryInsertSQL(), id.String(), categoryName); err != nil {
+	if _, err = tx.ExecContext(ctx, ExpenseCategoryInsertSQL, id.String(), categoryName); err != nil {
 		return model.ExpenseCategory{}, errors.Wrap(err, createNewCategoryErrMsg)
 	}
 
@@ -204,7 +204,7 @@ func (r *repository) createExpense(ctx context.Context, tx *sql.Tx, ex model.Exp
 		return errors.Wrap(err, createNewExpenseErrMsg)
 	}
 
-	if _, err = tx.ExecContext(ctx, GetExpensesInsertSQL(), id.String(), ex.Amount, ex.Datetime, ex.CategoryID, ex.UserId); err != nil {
+	if _, err = tx.ExecContext(ctx, ExpensesInsertSQL, id.String(), ex.Amount, ex.Datetime, ex.CategoryID, ex.UserId); err != nil {
 		return errors.Wrap(err, createNewExpenseErrMsg)
 	}
 
@@ -213,7 +213,7 @@ func (r *repository) createExpense(ctx context.Context, tx *sql.Tx, ex model.Exp
 
 func (r *repository) findCountExpenses(ctx context.Context, from time.Time, userId int64) (int, error) {
 	if r.expenseSelectCountStmt == nil {
-		stmt, err := r.db.PrepareContext(ctx, GetExpensesSelectCountSQL())
+		stmt, err := r.db.PrepareContext(ctx, ExpensesSelectCountSQL)
 		if err != nil {
 			return 0, errors.Wrap(err, expenseSelectCountErrMsg)
 		}
@@ -237,7 +237,7 @@ func (r *repository) findCountExpenses(ctx context.Context, from time.Time, user
 
 func (r *repository) findExpenses(ctx context.Context, from time.Time, userId int64) ([]*model.Expense, error) {
 	if r.expenseSelectStmt == nil {
-		stmt, err := r.db.PrepareContext(ctx, GetExpensesSelectSQL())
+		stmt, err := r.db.PrepareContext(ctx, ExpensesSelectSQL)
 		if err != nil {
 			return []*model.Expense{}, errors.Wrap(err, expenseSelectErrMsg)
 		}
@@ -254,9 +254,7 @@ func (r *repository) findExpenses(ctx context.Context, from time.Time, userId in
 		return []*model.Expense{}, errors.Wrap(err, expenseSelectErrMsg)
 	}
 
-	defer func() {
-		err = rows.Close()
-	}()
+	defer rows.Close() //nolint:errcheck
 
 	exps := make([]*model.Expense, 0, count)
 
@@ -283,7 +281,7 @@ func (r *repository) findExpenses(ctx context.Context, from time.Time, userId in
 }
 
 func (r *repository) upsertLimit(ctx context.Context, tx *sql.Tx, categoryID string, userId, amount int64) error {
-	if _, err := tx.ExecContext(ctx, GetUpsertLimitSQL(), categoryID, amount, userId); err != nil {
+	if _, err := tx.ExecContext(ctx, UpsertLimitSQL, categoryID, amount, userId); err != nil {
 		return errors.Wrap(err, upsertLimitErrMsg)
 	}
 
@@ -292,7 +290,7 @@ func (r *repository) upsertLimit(ctx context.Context, tx *sql.Tx, categoryID str
 
 func (r *repository) findFreeLimit(ctx context.Context, categoryID string, userId int64) (int64, bool, error) {
 	if r.freeLimitStmt == nil {
-		stmt, err := r.db.PrepareContext(ctx, GetFreeLimitSQL())
+		stmt, err := r.db.PrepareContext(ctx, FreeLimitSQL)
 		if err != nil {
 			return 0, false, errors.Wrap(err, freeLimitErrMsg)
 		}
@@ -315,32 +313,4 @@ func (r *repository) findFreeLimit(ctx context.Context, categoryID string, userI
 	}
 
 	return freeLimit.Int64, true, nil
-}
-
-func GetExpenseCategorySearchSQL() string {
-	return expenseCategorySearchSQL
-}
-
-func GetExpenseCategoryInsertSQL() string {
-	return expenseCategoryInsertSQL
-}
-
-func GetExpensesInsertSQL() string {
-	return expensesInsertSQL
-}
-
-func GetExpensesSelectSQL() string {
-	return expensesSelectSQL
-}
-
-func GetExpensesSelectCountSQL() string {
-	return expensesSelectCountSQL
-}
-
-func GetUpsertLimitSQL() string {
-	return upsertLimitSQL
-}
-
-func GetFreeLimitSQL() string {
-	return freeLimitSQL
 }

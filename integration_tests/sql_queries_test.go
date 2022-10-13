@@ -66,7 +66,7 @@ var _ = Describe("Testing SQL queries", Ordered, func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
-		res, err := db.ExecContext(ctx, expenses_sql_repo.GetExpenseCategoryInsertSQL(), category.ID, category.Name)
+		res, err := db.ExecContext(ctx, expenses_sql_repo.ExpenseCategoryInsertSQL, category.ID, category.Name)
 
 		Expect(err).To(BeNil())
 		rows, err := res.RowsAffected()
@@ -78,7 +78,7 @@ var _ = Describe("Testing SQL queries", Ordered, func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
-		row := db.QueryRowContext(ctx, expenses_sql_repo.GetExpenseCategorySearchSQL(), category.Name)
+		row := db.QueryRowContext(ctx, expenses_sql_repo.ExpenseCategorySearchSQL, category.Name)
 		Expect(row.Err()).To(BeNil())
 		var id, name string
 
@@ -93,7 +93,7 @@ var _ = Describe("Testing SQL queries", Ordered, func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
-		res, err := db.ExecContext(ctx, expenses_sql_repo.GetExpensesInsertSQL(), expense1.ID, expense1.Amount, expense1.Datetime, expense1.CategoryID, expense1.UserId)
+		res, err := db.ExecContext(ctx, expenses_sql_repo.ExpensesInsertSQL, expense1.ID, expense1.Amount, expense1.Datetime, expense1.CategoryID, expense1.UserId)
 
 		Expect(err).To(BeNil())
 		rows, err := res.RowsAffected()
@@ -103,7 +103,7 @@ var _ = Describe("Testing SQL queries", Ordered, func() {
 		ctx, cancel = context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
-		res, err = db.ExecContext(ctx, expenses_sql_repo.GetExpensesInsertSQL(), expense2.ID, expense2.Amount, expense2.Datetime, expense2.CategoryID, expense2.UserId)
+		res, err = db.ExecContext(ctx, expenses_sql_repo.ExpensesInsertSQL, expense2.ID, expense2.Amount, expense2.Datetime, expense2.CategoryID, expense2.UserId)
 
 		Expect(err).To(BeNil())
 		rows, err = res.RowsAffected()
@@ -115,7 +115,7 @@ var _ = Describe("Testing SQL queries", Ordered, func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
-		row := db.QueryRowContext(ctx, expenses_sql_repo.GetExpensesSelectCountSQL(), time.Now().AddDate(0, 0, -1), userId)
+		row := db.QueryRowContext(ctx, expenses_sql_repo.ExpensesSelectCountSQL, time.Now().AddDate(0, 0, -1), userId)
 		Expect(row.Err()).To(BeNil())
 		var count int
 
@@ -129,7 +129,7 @@ var _ = Describe("Testing SQL queries", Ordered, func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
-		rows, err := db.QueryContext(ctx, expenses_sql_repo.GetExpensesSelectSQL(), time.Now().AddDate(0, 0, -1), userId)
+		rows, err := db.QueryContext(ctx, expenses_sql_repo.ExpensesSelectSQL, time.Now().AddDate(0, 0, -1), userId)
 
 		Expect(err).To(BeNil())
 		Expect(rows.Err()).To(BeNil())
@@ -172,7 +172,7 @@ var _ = Describe("Testing SQL queries", Ordered, func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
-		res, err := db.ExecContext(ctx, expenses_sql_repo.GetUpsertLimitSQL(), category.ID, 15000, userId)
+		res, err := db.ExecContext(ctx, expenses_sql_repo.UpsertLimitSQL, category.ID, 15000, userId)
 
 		Expect(err).To(BeNil())
 		rows, err := res.RowsAffected()
@@ -184,7 +184,7 @@ var _ = Describe("Testing SQL queries", Ordered, func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
 
-		row := db.QueryRowContext(ctx, expenses_sql_repo.GetFreeLimitSQL(), category.ID, userId)
+		row := db.QueryRowContext(ctx, expenses_sql_repo.FreeLimitSQL, category.ID, userId)
 
 		Expect(row.Err()).To(BeNil())
 		var limit sql.NullInt64
