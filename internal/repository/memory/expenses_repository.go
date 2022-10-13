@@ -9,14 +9,19 @@ import (
 	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
 )
 
+type limit struct {
+	userId int64
+	amount int64
+}
+
 type repository struct {
 	expenses []*model.Expense
-	limits   map[string]int64
+	limits   map[string]*limit
 }
 
 func NewRepository() repo.ExpensesRepository {
 	return &repository{
-		limits: make(map[string]int64),
+		limits: make(map[string]*limit),
 	}
 }
 
@@ -26,7 +31,7 @@ func (r *repository) Add(ctx context.Context, ex model.Expense) error {
 	return nil
 }
 
-func (r *repository) GetExpenses(ctx context.Context, p model.ExpensePeriod) ([]*model.Expense, error) {
+func (r *repository) GetExpenses(ctx context.Context, p model.ExpensePeriod, userId int64) ([]*model.Expense, error) {
 	exps := make([]*model.Expense, 0, len(r.expenses))
 
 	periodStart := p.GetStart(time.Now())
@@ -40,13 +45,13 @@ func (r *repository) GetExpenses(ctx context.Context, p model.ExpensePeriod) ([]
 	return exps, nil
 }
 
-func (r *repository) SetLimit(ctx context.Context, category string, amount int64) error {
-	r.limits[strings.ToLower(category)] = amount
+func (r *repository) SetLimit(ctx context.Context, category string, userId, amount int64) error {
+	r.limits[strings.ToLower(category)] = &limit{amount: amount, userId: userId}
 
 	return nil
 }
 
-func (r *repository) GetFreeLimit(ctx context.Context, category string) (int64, bool, error) {
+func (r *repository) GetFreeLimit(ctx context.Context, category string, userId int64) (int64, bool, error) {
 	loweredCategory := strings.ToLower(category)
 	if _, ex := r.limits[loweredCategory]; !ex {
 		return 0, false, nil
@@ -64,5 +69,5 @@ func (r *repository) GetFreeLimit(ctx context.Context, category string) (int64, 
 		}
 	}
 
-	return r.limits[loweredCategory] - total, true, nil
+	return r.limits[loweredCategory].amount - total, true, nil
 }

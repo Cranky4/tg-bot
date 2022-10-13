@@ -15,6 +15,10 @@ type Config struct {
 	Database DatabaseConf `yaml:"database"`
 }
 
+type TokenGetter interface {
+	GetToken() string
+}
+
 type StorageConf struct {
 	Mode string `yaml:"mode"`
 }
@@ -24,34 +28,22 @@ type DatabaseConf struct {
 	MaxTries int    `yaml:"maxTries"`
 }
 
-type Service struct {
-	config Config
-}
-
-func New() (*Service, error) {
-	s := &Service{}
+func New() (*Config, error) {
+	c := &Config{}
 
 	rawYAML, err := os.ReadFile(configFile)
 	if err != nil {
 		return nil, errors.Wrap(err, "reading config file")
 	}
 
-	err = yaml.Unmarshal(rawYAML, &s.config)
+	err = yaml.Unmarshal(rawYAML, &c)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing yaml")
 	}
 
-	return s, nil
+	return c, nil
 }
 
-func (s *Service) Token() string {
-	return s.config.Token
-}
-
-func (s *Service) Storage() StorageConf {
-	return s.config.Storage
-}
-
-func (s *Service) Database() DatabaseConf {
-	return s.config.Database
+func (c *Config) GetToken() string {
+	return c.Token
 }

@@ -15,12 +15,14 @@ import (
 
 const (
 	expenseCategoryInsertSQL = "INSERT INTO expense_categories(id, name) VALUES %s"
-	expensesInsertSQL        = "INSERT INTO expenses(id, amount, datetime, category_id) VALUES %s"
+	expensesInsertSQL        = "INSERT INTO expenses(id, amount, datetime, category_id, user_id) VALUES %s"
 
 	cannotConnectToDB               = "не могу подключиться к базе данных"
 	cannotStartTransactionErrMsg    = "не могу начать транзакцию"
 	cannotRollbackTransactionErrMsg = "не могу откатить транзакцию"
 	cannotInsertCategoriesErrMsg    = "не могу добавить категории"
+
+	userId = 100
 )
 
 type Seeder interface {
@@ -81,6 +83,7 @@ func (s *dbSeeder) SeedExpenses(ctx context.Context, expensesCount, categoriesCo
 			CategoryID: categories[rand.Intn(categoriesCount)].ID,
 			Amount:     rand.Int63n(99999) + 1,
 			Datetime:   time.Unix(rand.Int63n(3600*24*365)+minDatetime, 0),
+			UserId:     userId,
 		})
 	}
 
@@ -125,17 +128,17 @@ func insertCategories(ctx context.Context, count int, categories []model.Expense
 	return doBatchInsert(ctx, tx, expenseCategoryInsertSQL, valuesPlaceholders, values)
 }
 
-func insertExpenses(ctx context.Context, count int, categories []model.Expense, tx *sql.Tx) error {
+func insertExpenses(ctx context.Context, count int, expenses []model.Expense, tx *sql.Tx) error {
 	valuesPlaceholders := make([]string, 0, count)
-	paramsCount := 4
+	paramsCount := 5
 	values := make([]interface{}, 0, count*paramsCount)
 
-	for i, c := range categories {
+	for i, e := range expenses {
 		valuesPlaceholders = append(
 			valuesPlaceholders,
-			fmt.Sprintf("($%d,$%d,$%d,$%d)", i*paramsCount+1, i*paramsCount+2, i*paramsCount+3, i*paramsCount+4),
+			fmt.Sprintf("($%d,$%d,$%d,$%d,$%d)", i*paramsCount+1, i*paramsCount+2, i*paramsCount+3, i*paramsCount+4, i*paramsCount+5),
 		)
-		values = append(values, c.ID, c.Amount, c.Datetime, c.CategoryID)
+		values = append(values, e.ID, e.Amount, e.Datetime, e.CategoryID, e.UserId)
 	}
 
 	return doBatchInsert(ctx, tx, expensesInsertSQL, valuesPlaceholders, values)

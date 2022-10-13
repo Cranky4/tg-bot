@@ -15,7 +15,8 @@ import (
 	memoryrepo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository/memory"
 	sqlrepo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository/sql"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
-	expense_service "gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_processor"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
 	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
 )
 
@@ -36,13 +37,16 @@ func main() {
 	defer cancel()
 
 	var repo repo.ExpensesRepository
-	switch config.Storage().Mode {
+	switch config.Storage.Mode {
 	case "memory":
 		repo = memoryrepo.NewRepository()
 	case "sql":
-		repo = sqlrepo.NewRepository(config.Database())
+		repo, err = sqlrepo.NewRepository(config.Database)
+		if err != nil {
+			log.Fatalf("cannot connect to db %s", err.Error())
+		}
 	default:
-		log.Fatalf("unknown repo mode %s", config.Storage())
+		log.Fatalf("unknown repo mode %s", config.Storage)
 	}
 
 	// Загружаем курс валют
@@ -66,8 +70,8 @@ func main() {
 	messagesSerbice := servicemessages.New(
 		tgClient,
 		converter.GetAvailableCurrencies(),
-		expense_service.NewProcessor(repo, converter),
-		expense_service.NewReporter(repo, converter),
+		expense_processor.NewProcessor(repo, converter),
+		expense_reporter.NewReporter(repo, converter),
 	)
 
 	tgClient.ListenUpdates(ctx, messagesSerbice)

@@ -1,4 +1,4 @@
-package expense_service
+package expense_reporter
 
 import (
 	"context"
@@ -8,8 +8,10 @@ import (
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 )
 
+const primitiveCurrencyMultiplier = 100
+
 type ExpenseReporter interface {
-	GetReport(ctx context.Context, period model.ExpensePeriod, currencty string) (*ExpenseReport, error)
+	GetReport(ctx context.Context, period model.ExpensePeriod, currencty string, userId int64) (*ExpenseReport, error)
 }
 
 type ExpenseReport struct {
@@ -29,8 +31,8 @@ func NewReporter(repo repo.ExpensesRepository, conv serviceconverter.Converter) 
 	}
 }
 
-func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, currency string) (*ExpenseReport, error) {
-	expenses, err := r.repo.GetExpenses(ctx, period)
+func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, currency string, userId int64) (*ExpenseReport, error) {
+	expenses, err := r.repo.GetExpenses(ctx, period, userId)
 	if err != nil {
 		return nil, err
 	}
@@ -41,7 +43,9 @@ func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, cu
 	}
 
 	for _, e := range expenses {
-		result[e.Category] += e.Amount
+		if e.UserId == userId {
+			result[e.Category] += e.Amount
+		}
 	}
 
 	if len(result) == 0 {

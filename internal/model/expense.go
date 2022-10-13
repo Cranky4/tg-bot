@@ -8,6 +8,7 @@ type Expense struct {
 	Category   string
 	CategoryID string
 	Datetime   time.Time
+	UserId     int64
 }
 
 type ExpenseCategory struct {

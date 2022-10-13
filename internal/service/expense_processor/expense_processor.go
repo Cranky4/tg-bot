@@ -1,4 +1,4 @@
-package expense_service
+package expense_processor
 
 import (
 	"context"
@@ -19,9 +19,9 @@ const (
 )
 
 type ExpenseProcessor interface {
-	AddExpense(ctx context.Context, amount float64, currency string, category string, datetime time.Time) (*model.Expense, error)
-	GetFreeLimit(ctx context.Context, category, currency string) (float64, bool, error)
-	SetLimit(ctx context.Context, category string, amount float64, currency string) (float64, error)
+	AddExpense(ctx context.Context, amount float64, currency string, category string, datetime time.Time, userId int64) (*model.Expense, error)
+	GetFreeLimit(ctx context.Context, category, currency string, userId int64) (float64, bool, error)
+	SetLimit(ctx context.Context, category string, userId int64, amount float64, currency string) (float64, error)
 }
 
 type processor struct {
@@ -36,13 +36,14 @@ func NewProcessor(repo repo.ExpensesRepository, conv serviceconverter.Converter)
 	}
 }
 
-func (p *processor) AddExpense(ctx context.Context, amount float64, currency string, category string, datetime time.Time) (*model.Expense, error) {
+func (p *processor) AddExpense(ctx context.Context, amount float64, currency string, category string, datetime time.Time, userId int64) (*model.Expense, error) {
 	convertedAmount := p.converter.ToRUB(amount, currency)
 
 	ex := model.Expense{
 		Amount:   int64(convertedAmount * primitiveCurrencyMultiplier),
 		Category: strings.Trim(category, " "),
 		Datetime: datetime,
+		UserId:   userId,
 	}
 
 	if err := p.repo.Add(ctx, ex); err != nil {
@@ -52,8 +53,8 @@ func (p *processor) AddExpense(ctx context.Context, amount float64, currency str
 	return &ex, nil
 }
 
-func (p *processor) GetFreeLimit(ctx context.Context, category, currency string) (float64, bool, error) {
-	freeLimit, hasLimit, err := p.repo.GetFreeLimit(ctx, strings.Trim(category, " "))
+func (p *processor) GetFreeLimit(ctx context.Context, category, currency string, userId int64) (float64, bool, error) {
+	freeLimit, hasLimit, err := p.repo.GetFreeLimit(ctx, strings.Trim(category, " "), userId)
 	if err != nil {
 		return 0, false, errors.Wrap(err, errSaveExpenseMessage)
 	}
@@ -63,10 +64,10 @@ func (p *processor) GetFreeLimit(ctx context.Context, category, currency string)
 	return convertedFreeLimit / primitiveCurrencyMultiplier, hasLimit, nil
 }
 
-func (p *processor) SetLimit(ctx context.Context, category string, amount float64, currency string) (float64, error) {
+func (p *processor) SetLimit(ctx context.Context, category string, userId int64, amount float64, currency string) (float64, error) {
 	convertedAmount := p.converter.ToRUB(amount, currency)
 
-	if err := p.repo.SetLimit(ctx, category, int64(convertedAmount*primitiveCurrencyMultiplier)); err != nil {
+	if err := p.repo.SetLimit(ctx, category, userId, int64(convertedAmount*primitiveCurrencyMultiplier)); err != nil {
 		return 0, errors.Wrap(err, errSetLimitMessage)
 	}
 

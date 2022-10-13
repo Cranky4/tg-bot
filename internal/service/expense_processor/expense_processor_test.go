@@ -1,4 +1,4 @@
-package expense_service
+package expense_processor
 
 import (
 	"context"
@@ -30,6 +30,7 @@ func TestAddExpenseWillReturnExpense(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
 	repo := repomocks.NewMockExpensesRepository(ctrl)
+	userId := int64(100)
 	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
 	assert.NoError(t, err)
 
@@ -39,9 +40,10 @@ func TestAddExpenseWillReturnExpense(t *testing.T) {
 		Amount:   12550,
 		Category: "Категория",
 		Datetime: date,
+		UserId:   userId,
 	})
 
-	exp, err := processor.AddExpense(ctx, 125.50, "RUB", "Категория", date)
+	exp, err := processor.AddExpense(ctx, 125.50, "RUB", "Категория", date, userId)
 	assert.NotNil(t, exp.ID)
 	assert.NoError(t, err)
 }
@@ -50,6 +52,7 @@ func TestAddExpenseWillReturnRepositoryError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
 	repo := repomocks.NewMockExpensesRepository(ctrl)
+	userId := int64(100)
 	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
 	assert.NoError(t, err)
 
@@ -59,9 +62,10 @@ func TestAddExpenseWillReturnRepositoryError(t *testing.T) {
 		Amount:   12550,
 		Category: "Категория",
 		Datetime: date,
+		UserId:   userId,
 	}).Return(errors.New("database error"))
 
-	exp, err := processor.AddExpense(ctx, 125.50, "RUB", "Категория", date)
+	exp, err := processor.AddExpense(ctx, 125.50, "RUB", "Категория", date, userId)
 	assert.Nil(t, exp)
 	assert.Error(t, err)
 }
@@ -70,12 +74,13 @@ func TestGetFreeLimitWithSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
 	repo := repomocks.NewMockExpensesRepository(ctrl)
+	userId := int64(100)
 
 	processor := NewProcessor(repo, testConverter)
 
-	repo.EXPECT().GetFreeLimit(ctx, "Категория").Return(int64(10000), true, nil)
+	repo.EXPECT().GetFreeLimit(ctx, "Категория", userId).Return(int64(10000), true, nil)
 
-	limit, has, err := processor.GetFreeLimit(ctx, "Категория", "RUB")
+	limit, has, err := processor.GetFreeLimit(ctx, "Категория", "RUB", userId)
 	assert.Equal(t, 100.00, limit)
 	assert.True(t, has)
 	assert.NoError(t, err)
@@ -85,12 +90,13 @@ func TestGetFreeLimitWithNoLimitSet(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
 	repo := repomocks.NewMockExpensesRepository(ctrl)
+	userId := int64(100)
 
 	processor := NewProcessor(repo, testConverter)
 
-	repo.EXPECT().GetFreeLimit(ctx, "Категория").Return(int64(0), false, nil)
+	repo.EXPECT().GetFreeLimit(ctx, "Категория", userId).Return(int64(0), false, nil)
 
-	limit, has, err := processor.GetFreeLimit(ctx, "Категория", "RUB")
+	limit, has, err := processor.GetFreeLimit(ctx, "Категория", "RUB", userId)
 	assert.Equal(t, 0.0, limit)
 	assert.False(t, has)
 	assert.NoError(t, err)
@@ -100,12 +106,13 @@ func TestGetFreeLimitWithRepoError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
 	repo := repomocks.NewMockExpensesRepository(ctrl)
+	userId := int64(100)
 
 	processor := NewProcessor(repo, testConverter)
 
-	repo.EXPECT().GetFreeLimit(ctx, "Категория").Return(int64(0), false, errors.New("database error"))
+	repo.EXPECT().GetFreeLimit(ctx, "Категория", userId).Return(int64(0), false, errors.New("database error"))
 
-	limit, has, err := processor.GetFreeLimit(ctx, "Категория", "RUB")
+	limit, has, err := processor.GetFreeLimit(ctx, "Категория", "RUB", userId)
 	assert.Equal(t, 0.0, limit)
 	assert.False(t, has)
 	assert.Error(t, err)
@@ -115,12 +122,13 @@ func TestSetLimitWithSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
 	repo := repomocks.NewMockExpensesRepository(ctrl)
+	userId := int64(100)
 
 	processor := NewProcessor(repo, testConverter)
 
-	repo.EXPECT().SetLimit(ctx, "Категория", int64(100000))
+	repo.EXPECT().SetLimit(ctx, "Категория", userId, int64(100000))
 
-	limit, err := processor.SetLimit(ctx, "Категория", 1000.00, "RUB")
+	limit, err := processor.SetLimit(ctx, "Категория", userId, 1000.00, "RUB")
 	assert.Equal(t, 1000.0, limit)
 	assert.NoError(t, err)
 }
@@ -129,12 +137,13 @@ func TestSetLimitWithRepoError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	ctx := context.Background()
 	repo := repomocks.NewMockExpensesRepository(ctrl)
+	userId := int64(100)
 
 	processor := NewProcessor(repo, testConverter)
 
-	repo.EXPECT().SetLimit(ctx, "Категория", int64(100000)).Return(errors.New("database error"))
+	repo.EXPECT().SetLimit(ctx, "Категория", userId, int64(100000)).Return(errors.New("database error"))
 
-	limit, err := processor.SetLimit(ctx, "Категория", 1000.00, "RUB")
+	limit, err := processor.SetLimit(ctx, "Категория", userId, 1000.00, "RUB")
 	assert.Equal(t, 0.0, limit)
 	assert.Error(t, err)
 }

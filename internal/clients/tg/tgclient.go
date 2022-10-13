@@ -6,27 +6,30 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/pkg/errors"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
 	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
 )
 
-type TokenGetter interface {
-	Token() string
+type TgClient interface {
+	SendMessage(text string, userID int64, buttons []string) error
+	ListenUpdates(ctx context.Context, msgModel *servicemessages.Model)
+	Stop()
 }
 
-type Client struct {
-	tgclient *tgbotapi.BotAPI
+type client struct {
+	api *tgbotapi.BotAPI
 }
 
-func New(tokenGetter TokenGetter) (*Client, error) {
-	client, err := tgbotapi.NewBotAPI(tokenGetter.Token())
+func New(tokenGetter config.TokenGetter) (TgClient, error) {
+	api, err := tgbotapi.NewBotAPI(tokenGetter.GetToken())
 	if err != nil {
 		return nil, errors.Wrap(err, "NewBotAPI")
 	}
 
-	return &Client{tgclient: client}, nil
+	return &client{api: api}, nil
 }
 
-func (c *Client) SendMessage(text string, userID int64, buttons []string) error {
+func (c *client) SendMessage(text string, userID int64, buttons []string) error {
 	msg := tgbotapi.NewMessage(userID, text)
 	msg.ReplyMarkup = tgbotapi.NewRemoveKeyboard(true)
 
@@ -40,17 +43,17 @@ func (c *Client) SendMessage(text string, userID int64, buttons []string) error 
 		msg.ReplyMarkup = keyboard
 	}
 
-	if _, err := c.tgclient.Send(msg); err != nil {
+	if _, err := c.api.Send(msg); err != nil {
 		return errors.Wrap(err, "client.Send")
 	}
 	return nil
 }
 
-func (c *Client) ListenUpdates(ctx context.Context, msgModel *servicemessages.Model) {
+func (c *client) ListenUpdates(ctx context.Context, msgModel *servicemessages.Model) {
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = 5
 
-	updates := c.tgclient.GetUpdatesChan(u)
+	updates := c.api.GetUpdatesChan(u)
 
 	log.Println("listening for messages")
 
@@ -71,6 +74,6 @@ func (c *Client) ListenUpdates(ctx context.Context, msgModel *servicemessages.Mo
 	}
 }
 
-func (c *Client) Stop() {
-	c.tgclient.StopReceivingUpdates()
+func (c *client) Stop() {
+	c.api.StopReceivingUpdates()
 }
