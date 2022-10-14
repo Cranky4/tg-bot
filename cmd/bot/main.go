@@ -6,12 +6,18 @@ import (
 	"os/signal"
 	"syscall"
 
+	// init pgsql.
+	_ "github.com/jackc/pgx/stdlib"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/tg"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/converter"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/messages"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/model/storage"
+	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
+	memoryrepo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository/memory"
+	sqlrepo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository/sql"
+	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_processor"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
+	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
 )
 
 func main() {
@@ -25,11 +31,25 @@ func main() {
 		log.Fatal("tg client init failed:", err)
 	}
 
-	converter := converter.NewConverter(exchangerate.NewGetter())
+	converter := serviceconverter.NewConverter(exchangerate.NewGetter())
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()
 
+	var repo repo.ExpensesRepository
+	switch config.Storage.Mode {
+	case "memory":
+		repo = memoryrepo.NewRepository()
+	case "sql":
+		repo, err = sqlrepo.NewRepository(config.Database)
+		if err != nil {
+			log.Fatalf("cannot connect to db %s", err.Error())
+		}
+	default:
+		log.Fatalf("unknown repo mode %s", config.Storage)
+	}
+
+	// Загружаем курс валют
 	go func(ctx context.Context) {
 		if err := converter.Load(ctx); err != nil {
 			log.Println("exchange load err:", err)
@@ -38,6 +58,7 @@ func main() {
 		log.Println("loaded")
 	}(ctx)
 
+	// Выключаем слежение за обновлениями в клиенте телеги
 	go func(ctx context.Context) {
 		<-ctx.Done()
 
@@ -46,9 +67,14 @@ func main() {
 		log.Println("receiving stopped...")
 	}(ctx)
 
-	msgModel := messages.New(tgClient, storage.NewMemoryStorage(), converter)
+	messagesSerbice := servicemessages.New(
+		tgClient,
+		converter.GetAvailableCurrencies(),
+		expense_processor.NewProcessor(repo, converter),
+		expense_reporter.NewReporter(repo, converter),
+	)
 
-	tgClient.ListenUpdates(msgModel)
+	tgClient.ListenUpdates(ctx, messagesSerbice)
 
 	log.Println("bye...")
 }
