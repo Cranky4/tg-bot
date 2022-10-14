@@ -16,11 +16,13 @@ import (
 
 type testGetter struct{}
 
-func (g *testGetter) Get(ctx context.Context) (exchangerate.Rates, error) {
-	return exchangerate.Rates{
-		USD: 2,
-		EUR: 3,
-		CNY: 4,
+func (g *testGetter) Get(ctx context.Context) (*exchangerate.ExchangeResponse, error) {
+	return &exchangerate.ExchangeResponse{
+		Rates: exchangerate.Rates{
+			USD: 2,
+			EUR: 3,
+			CNY: 4,
+		},
 	}, nil
 }
 

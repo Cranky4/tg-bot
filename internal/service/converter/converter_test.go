@@ -11,18 +11,20 @@ import (
 
 type testRatesGetter struct{}
 
-func (g *testRatesGetter) Get(ctx context.Context) (exchangerate.Rates, error) {
-	return exchangerate.Rates{
-		CNY: 2,
-		USD: 3,
-		EUR: 4,
+func (g *testRatesGetter) Get(ctx context.Context) (*exchangerate.ExchangeResponse, error) {
+	return &exchangerate.ExchangeResponse{
+		Rates: exchangerate.Rates{
+			CNY: 2,
+			USD: 3,
+			EUR: 4,
+		},
 	}, nil
 }
 
 type testErrorRatesGetter struct{}
 
-func (g *testErrorRatesGetter) Get(ctx context.Context) (exchangerate.Rates, error) {
-	return exchangerate.Rates{}, errors.New("timout")
+func (g *testErrorRatesGetter) Get(ctx context.Context) (*exchangerate.ExchangeResponse, error) {
+	return &exchangerate.ExchangeResponse{}, errors.New("timout")
 }
 
 func TestConverterShouldCorrectConvertToRUB(t *testing.T) {

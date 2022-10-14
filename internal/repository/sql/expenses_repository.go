@@ -47,11 +47,6 @@ const (
 
 type repository struct {
 	db *sql.DB
-
-	categorySearchStmt     *sql.Stmt
-	expenseSelectStmt      *sql.Stmt
-	expenseSelectCountStmt *sql.Stmt
-	freeLimitStmt          *sql.Stmt
 }
 
 func NewRepository(conf config.DatabaseConf) (repo.ExpensesRepository, error) {
@@ -155,15 +150,7 @@ func (r *repository) GetFreeLimit(ctx context.Context, categoryName string, user
 }
 
 func (r *repository) findCategory(ctx context.Context, categoryName string) (model.ExpenseCategory, bool, error) {
-	if r.categorySearchStmt == nil {
-		stmt, err := r.db.PrepareContext(ctx, ExpenseCategorySearchSQL)
-		if err != nil {
-			return model.ExpenseCategory{}, false, errors.Wrap(err, findCategoryErrMsg)
-		}
-		r.categorySearchStmt = stmt
-	}
-
-	row := r.categorySearchStmt.QueryRowContext(ctx, categoryName)
+	row := r.db.QueryRowContext(ctx, ExpenseCategorySearchSQL, categoryName)
 
 	if errors.Is(row.Err(), sql.ErrNoRows) {
 		return model.ExpenseCategory{}, false, nil
@@ -212,15 +199,7 @@ func (r *repository) createExpense(ctx context.Context, tx *sql.Tx, ex model.Exp
 }
 
 func (r *repository) findCountExpenses(ctx context.Context, from time.Time, userId int64) (int, error) {
-	if r.expenseSelectCountStmt == nil {
-		stmt, err := r.db.PrepareContext(ctx, ExpensesSelectCountSQL)
-		if err != nil {
-			return 0, errors.Wrap(err, expenseSelectCountErrMsg)
-		}
-		r.expenseSelectCountStmt = stmt
-	}
-
-	row := r.expenseSelectCountStmt.QueryRowContext(ctx, from, userId)
+	row := r.db.QueryRowContext(ctx, ExpensesSelectCountSQL, from, userId)
 	if errors.Is(row.Err(), sql.ErrNoRows) {
 		return 0, nil
 	} else if row.Err() != nil {
@@ -236,20 +215,12 @@ func (r *repository) findCountExpenses(ctx context.Context, from time.Time, user
 }
 
 func (r *repository) findExpenses(ctx context.Context, from time.Time, userId int64) ([]*model.Expense, error) {
-	if r.expenseSelectStmt == nil {
-		stmt, err := r.db.PrepareContext(ctx, ExpensesSelectSQL)
-		if err != nil {
-			return []*model.Expense{}, errors.Wrap(err, expenseSelectErrMsg)
-		}
-		r.expenseSelectStmt = stmt
-	}
-
 	count, err := r.findCountExpenses(ctx, from, userId)
 	if err != nil {
 		return []*model.Expense{}, err
 	}
 
-	rows, err := r.expenseSelectStmt.QueryContext(ctx, from, userId)
+	rows, err := r.db.QueryContext(ctx, ExpensesSelectSQL, from, userId)
 	if err != nil {
 		return []*model.Expense{}, errors.Wrap(err, expenseSelectErrMsg)
 	}
@@ -289,15 +260,7 @@ func (r *repository) upsertLimit(ctx context.Context, tx *sql.Tx, categoryID str
 }
 
 func (r *repository) findFreeLimit(ctx context.Context, categoryID string, userId int64) (int64, bool, error) {
-	if r.freeLimitStmt == nil {
-		stmt, err := r.db.PrepareContext(ctx, FreeLimitSQL)
-		if err != nil {
-			return 0, false, errors.Wrap(err, freeLimitErrMsg)
-		}
-		r.freeLimitStmt = stmt
-	}
-
-	row := r.freeLimitStmt.QueryRowContext(ctx, categoryID, userId)
+	row := r.db.QueryRowContext(ctx, FreeLimitSQL, categoryID, userId)
 
 	if errors.Is(row.Err(), sql.ErrNoRows) {
 		return 0, false, nil

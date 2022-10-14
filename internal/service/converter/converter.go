@@ -24,8 +24,14 @@ type Converter interface {
 }
 
 type exchConverter struct {
-	rates  exchangerate.Rates
+	rates  Rates
 	getter exchangerate.RatesGetter
+}
+
+type Rates struct {
+	CNY float64
+	EUR float64
+	USD float64
 }
 
 func NewConverter(getter exchangerate.RatesGetter) Converter {
@@ -69,12 +75,16 @@ func (c *exchConverter) ToRUB(amount float64, from string) float64 {
 }
 
 func (c *exchConverter) Load(ctx context.Context) error {
-	rates, err := c.getter.Get(ctx)
+	res, err := c.getter.Get(ctx)
 	if err != nil {
 		return err
 	}
 
-	c.rates = rates
+	c.rates = Rates{
+		USD: res.Rates.USD,
+		CNY: res.Rates.CNY,
+		EUR: res.Rates.EUR,
+	}
 
 	return nil
 }
