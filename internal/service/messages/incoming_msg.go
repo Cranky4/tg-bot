@@ -3,7 +3,9 @@ package servicemessages
 import (
 	"context"
 	"strings"
+	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_processor"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
@@ -46,12 +48,14 @@ type MessageSender interface {
 }
 
 type Model struct {
-	tgClient         MessageSender
-	currencies       map[string]struct{}
-	expenseProcessor expense_processor.ExpenseProcessor
-	expenseReporter  expense_reporter.ExpenseReporter
-	currency         string
-	logger           logger.Logger
+	tgClient             MessageSender
+	currencies           map[string]struct{}
+	expenseProcessor     expense_processor.ExpenseProcessor
+	expenseReporter      expense_reporter.ExpenseReporter
+	currency             string
+	logger               logger.Logger
+	totalRequestsCounter *prometheus.CounterVec
+	responseTimeSummary  *prometheus.SummaryVec
 }
 
 func New(
@@ -60,14 +64,18 @@ func New(
 	expenseProcessor expense_processor.ExpenseProcessor,
 	expenseReporter expense_reporter.ExpenseReporter,
 	logger logger.Logger,
+	totalRequestsCounter *prometheus.CounterVec,
+	responseTimeSummary *prometheus.SummaryVec,
 ) *Model {
 	return &Model{
-		tgClient:         tgClient,
-		currencies:       currencies,
-		currency:         serviceconverter.RUB,
-		expenseProcessor: expenseProcessor,
-		expenseReporter:  expenseReporter,
-		logger:           logger,
+		tgClient:             tgClient,
+		currencies:           currencies,
+		currency:             serviceconverter.RUB,
+		expenseProcessor:     expenseProcessor,
+		expenseReporter:      expenseReporter,
+		logger:               logger,
+		totalRequestsCounter: totalRequestsCounter,
+		responseTimeSummary:  responseTimeSummary,
 	}
 }
 
@@ -79,6 +87,19 @@ type Message struct {
 }
 
 func (m *Model) IncomingMessage(ctx context.Context, msg Message) error {
+	// Метрика времени ответа
+	if m.responseTimeSummary != nil {
+		start := time.Now()
+		defer func(start time.Time, command string) {
+			m.responseTimeSummary.WithLabelValues(command).Observe(float64(time.Since(start).Milliseconds()))
+		}(start, msg.Command)
+	}
+
+	// Метрика количества команд
+	if m.totalRequestsCounter != nil {
+		m.totalRequestsCounter.WithLabelValues(msg.Command).Inc()
+	}
+
 	m.logger.Debug(
 		"получена команда",
 		logger.LogDataItem{Key: "userId", Value: msg.UserID},

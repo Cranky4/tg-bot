@@ -64,7 +64,7 @@ func (g *exchRatesGetter) Get(ctx context.Context) (*ExchangeResponse, error) {
 		return nil, err
 	}
 
-	g.logger.Debug("получение курсов валюту спешно")
+	g.logger.Debug("получение курсов валют успешно")
 
 	return &result, err
 }

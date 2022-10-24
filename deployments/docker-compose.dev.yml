@@ -12,26 +12,29 @@ services:
     ports: 
       - '${TG_BOT_DB_PORT:-5432}:5432'
     volumes:
-        - tg_bot_postgres:/var/lib/postgresql/data
+      - tg_bot_postgres:/var/lib/postgresql/data
 
   filed:
+    container_name: file_d
     command: /file.d/file.d --config /config.yaml
     image: ozonru/file.d:latest-linux-amd64
     volumes:
       - ../logs/bot.log:/tmp/logs/log.txt
       - ../build/file_d/offsets.yaml:/tmp/offsets.yaml
-      - ../build/file_d/config.yml:/config.yaml
+      - ../build/file_d/config.yml:/config.yaml:ro
     links:
       - graylog
     depends_on:
       - graylog
       
   mongodb:
+    container_name: mongodb
     image: mongo:3
     volumes:
       - tg_bot_mongo:/data/db
 
   elasticsearch:
+    container_name: elasticsearch
     image: elasticsearch:7.17.6
     volumes:
       - tg_bot_elastic:/usr/share/elasticsearch/data
@@ -41,9 +44,10 @@ services:
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
 
   graylog:
+    container_name: graylog
     image: graylog/graylog:4.3
     volumes:
-      - ../build/graylog/config.conf:/usr/share/graylog/data/config/graylog.conf
+      - ../build/graylog/config.conf:/usr/share/graylog/data/config/graylog.conf:ro
     environment:
       # (must be at least 16 characters)
       - GRAYLOG_PASSWORD_SECRET=EabOdthinPafivup
@@ -67,6 +71,27 @@ services:
       # GELF TCP
       - 12201:12201
 
+  prometheus:
+    container_name: prometheus
+    image: prom/prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ../build/prometheus/config.yml:/etc/prometheus/prometheus.yml:ro
+      - ../build/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana-oss
+    ports:
+      - 3000:3000
+    volumes:
+      - tg_bot_grafana:/var/lib/grafana
+    links:
+      - prometheus
+
 volumes:
   tg_bot_postgres:
     name: 'tg-bot-postgres'
@@ -74,3 +99,5 @@ volumes:
     name: 'tg-bot-mongo'
   tg_bot_elastic:
     name: 'tg-bot-elastic'
+  tg_bot_grafana:
+    name: 'tg-bot-grafana'

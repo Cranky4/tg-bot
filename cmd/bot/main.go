@@ -2,13 +2,17 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"net/http"
 	"os/signal"
 	"syscall"
 
 	// init pgsql.
-
 	_ "github.com/jackc/pgx/stdlib"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/tg"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
@@ -72,12 +76,48 @@ func main() {
 		logger.Debug("receiving stopped...")
 	}(ctx)
 
+	// Запускаем http-сервер для метрик
+	go func() {
+		http.Handle(config.Metrics.URL, promhttp.Handler())
+
+		if err := http.ListenAndServe(fmt.Sprintf(":%d", config.Metrics.Port), nil); err != nil {
+			logger.Error("ошибка старта сервера метрик", servicelogger.LogDataItem{Key: "error", Value: err.Error()})
+		}
+	}()
+
+	// Метрики
+	labelNames := []string{"command"}
+	requestsTotalCounter := promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "tg_bot",
+			Subsystem: "tg_client",
+			Help:      "Total count of requests",
+			Name:      "requests_total",
+		},
+		labelNames,
+	)
+	responseTimeSummary := promauto.NewSummaryVec(
+		prometheus.SummaryOpts{
+			Namespace: "tg_bot",
+			Subsystem: "tg_client",
+			Help:      "Response time of commands",
+			Name:      "response_time_milliseconds",
+			Objectives: map[float64]float64{
+				0.5:  50,
+				0.9:  10,
+				0.99: 1,
+			},
+		}, labelNames,
+	)
+
 	messagesService := servicemessages.New(
 		tgClient,
 		converter.GetAvailableCurrencies(),
 		expense_processor.NewProcessor(repo, converter),
 		expense_reporter.NewReporter(repo, converter),
 		logger,
+		requestsTotalCounter,
+		responseTimeSummary,
 	)
 
 	tgClient.ListenUpdates(ctx, messagesService)

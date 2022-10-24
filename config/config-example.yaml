@@ -10,3 +10,7 @@ database:
 
 logger:
   level: "debug" # info, warn, error, fatal
+
+metrics:
+  url: "/metrics"
+  port: 8080

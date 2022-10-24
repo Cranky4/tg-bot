@@ -20,6 +20,7 @@ type Config struct {
 	Storage  StorageConf  `yaml:"storage"`
 	Database DatabaseConf `yaml:"database"`
 	Logger   LoggerConf   `yaml:"logger"`
+	Metrics  MetricsConf  `yaml:"metrics"`
 }
 
 type TokenGetter interface {
@@ -37,6 +38,11 @@ type DatabaseConf struct {
 
 type LoggerConf struct {
 	Level string `yaml:"level"`
+}
+
+type MetricsConf struct {
+	URL  string `yaml:"url"`
+	Port int    `yaml:"port"`
 }
 
 func New() (*Config, error) {
