@@ -7,6 +7,7 @@ import (
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_processor"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 )
 
 const (
@@ -50,6 +51,7 @@ type Model struct {
 	expenseProcessor expense_processor.ExpenseProcessor
 	expenseReporter  expense_reporter.ExpenseReporter
 	currency         string
+	logger           logger.Logger
 }
 
 func New(
@@ -57,6 +59,7 @@ func New(
 	currencies map[string]struct{},
 	expenseProcessor expense_processor.ExpenseProcessor,
 	expenseReporter expense_reporter.ExpenseReporter,
+	logger logger.Logger,
 ) *Model {
 	return &Model{
 		tgClient:         tgClient,
@@ -64,6 +67,7 @@ func New(
 		currency:         serviceconverter.RUB,
 		expenseProcessor: expenseProcessor,
 		expenseReporter:  expenseReporter,
+		logger:           logger,
 	}
 }
 
@@ -75,6 +79,13 @@ type Message struct {
 }
 
 func (m *Model) IncomingMessage(ctx context.Context, msg Message) error {
+	m.logger.Debug(
+		"получена команда",
+		logger.LogDataItem{Key: "userId", Value: msg.UserID},
+		logger.LogDataItem{Key: "command", Value: msg.Command},
+		logger.LogDataItem{Key: "arguments", Value: msg.CommandArguments},
+	)
+
 	response := "не знаю эту команду"
 	var err error
 	btns := mainMenu
@@ -96,6 +107,8 @@ func (m *Model) IncomingMessage(ctx context.Context, msg Message) error {
 
 	if err != nil {
 		response = err.Error()
+
+		m.logger.Error(response)
 	}
 
 	return m.tgClient.SendMessage(response, msg.UserID, btns)

@@ -7,6 +7,7 @@ import (
 	"syscall"
 
 	// init pgsql.
+
 	_ "github.com/jackc/pgx/stdlib"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/tg"
@@ -17,6 +18,7 @@ import (
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_processor"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
+	servicelogger "gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
 )
 
@@ -26,12 +28,17 @@ func main() {
 		log.Fatal("config init failed:", err)
 	}
 
-	tgClient, err := tg.New(config)
+	logger, err := servicelogger.NewLogger(config.Logger.Level, config.Env)
+	if err != nil {
+		log.Fatal("logger init failed:", err)
+	}
+
+	tgClient, err := tg.New(config, logger)
 	if err != nil {
 		log.Fatal("tg client init failed:", err)
 	}
 
-	converter := serviceconverter.NewConverter(exchangerate.NewGetter())
+	converter := serviceconverter.NewConverter(exchangerate.NewGetter(logger))
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()
@@ -52,10 +59,9 @@ func main() {
 	// Загружаем курс валют
 	go func(ctx context.Context) {
 		if err := converter.Load(ctx); err != nil {
-			log.Println("exchange load err:", err)
+			logger.Error("exchange load err", servicelogger.LogDataItem{Key: "error", Value: err.Error()})
 			return
 		}
-		log.Println("loaded")
 	}(ctx)
 
 	// Выключаем слежение за обновлениями в клиенте телеги
@@ -63,18 +69,18 @@ func main() {
 		<-ctx.Done()
 
 		tgClient.Stop()
-
-		log.Println("receiving stopped...")
+		logger.Debug("receiving stopped...")
 	}(ctx)
 
-	messagesSerbice := servicemessages.New(
+	messagesService := servicemessages.New(
 		tgClient,
 		converter.GetAvailableCurrencies(),
 		expense_processor.NewProcessor(repo, converter),
 		expense_reporter.NewReporter(repo, converter),
+		logger,
 	)
 
-	tgClient.ListenUpdates(ctx, messagesSerbice)
+	tgClient.ListenUpdates(ctx, messagesService)
 
-	log.Println("bye...")
+	logger.Debug("bye...")
 }

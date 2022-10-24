@@ -2,11 +2,11 @@ package tg
 
 import (
 	"context"
-	"log"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
 )
 
@@ -17,16 +17,20 @@ type TgClient interface {
 }
 
 type client struct {
-	api *tgbotapi.BotAPI
+	api    *tgbotapi.BotAPI
+	logger logger.Logger
 }
 
-func New(tokenGetter config.TokenGetter) (TgClient, error) {
+func New(tokenGetter config.TokenGetter, logg logger.Logger) (TgClient, error) {
 	api, err := tgbotapi.NewBotAPI(tokenGetter.GetToken())
 	if err != nil {
 		return nil, errors.Wrap(err, "NewBotAPI")
 	}
 
-	return &client{api: api}, nil
+	return &client{
+		api:    api,
+		logger: logg,
+	}, nil
 }
 
 func (c *client) SendMessage(text string, userID int64, buttons []string) error {
@@ -55,12 +59,10 @@ func (c *client) ListenUpdates(ctx context.Context, msgModel *servicemessages.Mo
 
 	updates := c.api.GetUpdatesChan(u)
 
-	log.Println("listening for messages")
+	c.logger.Info("listening for messages")
 
 	for update := range updates {
-		if update.Message != nil { // If we got a message
-			log.Printf("[%s] %s", update.Message.From.UserName, update.Message.Text)
-
+		if update.Message != nil {
 			err := msgModel.IncomingMessage(ctx, servicemessages.Message{
 				Text:             update.Message.Text,
 				UserID:           update.Message.From.ID,
@@ -68,7 +70,7 @@ func (c *client) ListenUpdates(ctx context.Context, msgModel *servicemessages.Mo
 				CommandArguments: update.Message.CommandArguments(),
 			})
 			if err != nil {
-				log.Println("error processing message:", err)
+				c.logger.Error(err.Error())
 			}
 		}
 	}

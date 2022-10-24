@@ -1,9 +1,12 @@
 token:
 
+env: "dev" # prod
+
 storage:
   mode: "memory" # "sql"
 
 database:
   dsn: postgres://tg_bot_user:secret@localhost:5432/tg_bot
-  maxTries: 3
-  triesTimeout: "1s"
+
+logger:
+  level: "debug" # info, warn, error, fatal

@@ -27,7 +27,7 @@ test-coverage:
 	go test ./... -coverprofile=coverage.out && go tool cover -html=coverage.out
 
 run:
-	go run ${PACKAGE}
+	go run ${PACKAGE} 2>&1 | tee logs/bot.log
 
 run-seeder:
 	go run ${SEEDER}
@@ -45,6 +45,9 @@ generate: install-mockgen
 	${MOCKGEN} \
 		-source=internal/service/expense_reporter/expense_reporter.go \
 		-destination=internal/service/expense_reporter/mocks/expense_reporter_mocks.go
+	${MOCKGEN} \
+		-source=internal/service/logger/logger.go \
+		-destination=internal/service/logger/mocks/logger_mocks.go
 
 lint: install-lint
 	${LINTBIN} run
