@@ -72,7 +72,7 @@ func (p *processor) GetFreeLimit(ctx context.Context, category, currency string,
 }
 
 func (p *processor) SetLimit(ctx context.Context, category string, userId int64, amount float64, currency string) (float64, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "GetFreeLimit")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SetLimit")
 	defer span.Finish()
 
 	convertedAmount := p.converter.ToRUB(amount, currency)
