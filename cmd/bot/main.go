@@ -63,12 +63,17 @@ func main() {
 	go func() {
 		err := startHTTPServer(config.Metrics.URL, config.Metrics.Port)
 		if err != nil {
-			logger.Error(err.Error())
+			logger.Error("Error while tracer flush", servicelogger.LogDataItem{Key: "error", Value: err.Error()})
 		}
 	}()
 
 	// Трейсы
 	initTraces(logger)
+	defer func() {
+		if err := flushTraces(); err != nil {
+			logger.Error("traces flush err", servicelogger.LogDataItem{Key: "error", Value: err.Error()})
+		}
+	}()
 
 	messagesService := servicemessages.New(
 		tgClient,

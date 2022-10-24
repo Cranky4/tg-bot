@@ -6,13 +6,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-const (
-	Debug = iota
-	Info
-	Warn
-	Error
-	Fatal
-)
+const traceIdField = "traceID"
 
 type Logger interface {
 	Debug(msg string, data ...LogDataItem)
@@ -41,7 +35,7 @@ func (z *zapLogger) dataToFields(data ...LogDataItem) []zap.Field {
 	}
 
 	if z.traceId != "" {
-		fields = append(fields, zap.String("traceId", z.traceId))
+		fields = append(fields, zap.String(traceIdField, z.traceId))
 	}
 
 	return fields
