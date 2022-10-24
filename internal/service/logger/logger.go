@@ -20,6 +20,7 @@ type Logger interface {
 	Warn(msg string, data ...LogDataItem)
 	Error(msg string, data ...LogDataItem)
 	Fatal(msg string, data ...LogDataItem)
+	SetTraceId(id string)
 }
 
 type LogDataItem struct {
@@ -28,7 +29,8 @@ type LogDataItem struct {
 }
 
 type zapLogger struct {
-	zap *zap.Logger
+	zap     *zap.Logger
+	traceId string
 }
 
 func (z *zapLogger) dataToFields(data ...LogDataItem) []zap.Field {
@@ -36,6 +38,10 @@ func (z *zapLogger) dataToFields(data ...LogDataItem) []zap.Field {
 
 	for _, item := range data {
 		fields = append(fields, zap.Any(item.Key, item.Value))
+	}
+
+	if z.traceId != "" {
+		fields = append(fields, zap.String("traceId", z.traceId))
 	}
 
 	return fields
@@ -59,6 +65,10 @@ func (z *zapLogger) Error(msg string, data ...LogDataItem) {
 
 func (z *zapLogger) Fatal(msg string, data ...LogDataItem) {
 	z.zap.Fatal(msg, z.dataToFields(data...)...)
+}
+
+func (z *zapLogger) SetTraceId(traceId string) {
+	z.traceId = traceId
 }
 
 func NewLogger(level string, env string) (Logger, error) {

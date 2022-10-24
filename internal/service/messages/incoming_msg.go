@@ -5,7 +5,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/uber/jaeger-client-go"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_processor"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
@@ -87,6 +89,14 @@ type Message struct {
 }
 
 func (m *Model) IncomingMessage(ctx context.Context, msg Message) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "IncomingMessage")
+	defer span.Finish()
+
+	// Меняет ид трейса для логов
+	if spanCtx, ok := span.Context().(jaeger.SpanContext); ok {
+		m.logger.SetTraceId(spanCtx.SpanID().String())
+	}
+
 	// Метрика времени ответа
 	if m.responseTimeSummary != nil {
 		start := time.Now()
@@ -113,15 +123,15 @@ func (m *Model) IncomingMessage(ctx context.Context, msg Message) error {
 
 	switch msg.Command {
 	case startCommand:
-		response = m.showInfo()
+		response = m.showInfo(ctx)
 	case addExpenseCommand:
 		response, err = m.addExpense(ctx, msg)
 	case getExpensesCommand:
 		response, err = m.getExpenses(ctx, msg)
 	case requestCurrencyChangeCommand:
-		response, btns = m.requestCurrencyChange()
+		response, btns = m.requestCurrencyChange(ctx)
 	case setCurrencyCommand:
-		response, err = m.setCurrency(msg)
+		response, err = m.setCurrency(ctx, msg)
 	case setLimitCommand:
 		response, err = m.setLimit(ctx, msg)
 	}
