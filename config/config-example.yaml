@@ -1,7 +1,5 @@
 token:
 
-env: "dev" # prod
-
 storage:
   mode: "memory" # "sql"
 

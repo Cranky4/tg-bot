@@ -19,8 +19,7 @@ services:
     command: /file.d/file.d --config /config.yaml
     image: ozonru/file.d:latest-linux-amd64
     volumes:
-      - ../logs/bot.log:/tmp/logs/log.txt
-      - ../build/file_d/offsets.yaml:/tmp/offsets.yaml
+      - ../logs/:/tmp/logs
       - ../build/file_d/config.yml:/config.yaml:ro
     links:
       - graylog

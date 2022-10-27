@@ -55,7 +55,6 @@ type Model struct {
 	expenseProcessor     expense_processor.ExpenseProcessor
 	expenseReporter      expense_reporter.ExpenseReporter
 	currency             string
-	logger               logger.Logger
 	totalRequestsCounter *prometheus.CounterVec
 	responseTimeSummary  *prometheus.SummaryVec
 }
@@ -65,7 +64,6 @@ func New(
 	currencies map[string]struct{},
 	expenseProcessor expense_processor.ExpenseProcessor,
 	expenseReporter expense_reporter.ExpenseReporter,
-	logger logger.Logger,
 	totalRequestsCounter *prometheus.CounterVec,
 	responseTimeSummary *prometheus.SummaryVec,
 ) *Model {
@@ -75,7 +73,6 @@ func New(
 		currency:             serviceconverter.RUB,
 		expenseProcessor:     expenseProcessor,
 		expenseReporter:      expenseReporter,
-		logger:               logger,
 		totalRequestsCounter: totalRequestsCounter,
 		responseTimeSummary:  responseTimeSummary,
 	}
@@ -94,7 +91,7 @@ func (m *Model) IncomingMessage(ctx context.Context, msg Message) error {
 
 	// Меняет ид трейса для логов
 	if spanCtx, ok := span.Context().(jaeger.SpanContext); ok {
-		m.logger.SetTraceId(spanCtx.SpanID().String())
+		logger.SetTraceId(spanCtx.SpanID().String())
 	}
 
 	// Метрика времени ответа
@@ -110,7 +107,7 @@ func (m *Model) IncomingMessage(ctx context.Context, msg Message) error {
 		m.totalRequestsCounter.WithLabelValues(msg.Command).Inc()
 	}
 
-	m.logger.Debug(
+	logger.Debug(
 		"получена команда",
 		logger.LogDataItem{Key: "userId", Value: msg.UserID},
 		logger.LogDataItem{Key: "command", Value: msg.Command},
@@ -139,7 +136,7 @@ func (m *Model) IncomingMessage(ctx context.Context, msg Message) error {
 	if err != nil {
 		response = err.Error()
 
-		m.logger.Error(response)
+		logger.Error(response)
 	}
 
 	return m.tgClient.SendMessage(response, msg.UserID, btns)

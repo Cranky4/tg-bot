@@ -17,20 +17,16 @@ type TgClient interface {
 }
 
 type client struct {
-	api    *tgbotapi.BotAPI
-	logger logger.Logger
+	api *tgbotapi.BotAPI
 }
 
-func New(tokenGetter config.TokenGetter, logg logger.Logger) (TgClient, error) {
+func New(tokenGetter config.TokenGetter) (TgClient, error) {
 	api, err := tgbotapi.NewBotAPI(tokenGetter.GetToken())
 	if err != nil {
 		return nil, errors.Wrap(err, "NewBotAPI")
 	}
 
-	return &client{
-		api:    api,
-		logger: logg,
-	}, nil
+	return &client{api: api}, nil
 }
 
 func (c *client) SendMessage(text string, userID int64, buttons []string) error {
@@ -59,7 +55,7 @@ func (c *client) ListenUpdates(ctx context.Context, msgModel *servicemessages.Mo
 
 	updates := c.api.GetUpdatesChan(u)
 
-	c.logger.Info("listening for messages")
+	logger.Info("listening for messages")
 
 	for update := range updates {
 		if update.Message != nil {
@@ -70,7 +66,7 @@ func (c *client) ListenUpdates(ctx context.Context, msgModel *servicemessages.Mo
 				CommandArguments: update.Message.CommandArguments(),
 			})
 			if err != nil {
-				c.logger.Error(err.Error())
+				logger.Error(err.Error())
 			}
 		}
 	}

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
-
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 )
 
 const URL = "https://api.exchangerate.host/latest?base=RUB&symbols=USD,CNY,EUR"
@@ -16,15 +14,11 @@ type RatesGetter interface {
 }
 
 type exchRatesGetter struct {
-	url    string
-	logger logger.Logger
+	url string
 }
 
-func NewGetter(logger logger.Logger) RatesGetter {
-	return &exchRatesGetter{
-		url:    URL,
-		logger: logger,
-	}
+func NewGetter() RatesGetter {
+	return &exchRatesGetter{url: URL}
 }
 
 type Rates struct {
@@ -49,8 +43,6 @@ func (g *exchRatesGetter) Get(ctx context.Context) (*ExchangeResponse, error) {
 		return nil, err
 	}
 
-	g.logger.Debug("получение курсов валют", logger.LogDataItem{Key: "URL", Value: g.url})
-
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -63,8 +55,6 @@ func (g *exchRatesGetter) Get(ctx context.Context) (*ExchangeResponse, error) {
 	if err = json.NewDecoder(res.Body).Decode(&result); err != nil {
 		return nil, err
 	}
-
-	g.logger.Debug("получение курсов валют успешно")
 
 	return &result, err
 }

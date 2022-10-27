@@ -2,7 +2,6 @@ package servicemessages
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -13,7 +12,6 @@ import (
 	exp_processor_mock "gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_processor/mocks"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
 	exp_reporter_mock "gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter/mocks"
-	service_logger "gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	msgmocks "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages/mocks"
 )
 
@@ -24,39 +22,12 @@ var currencies = map[string]struct{}{
 	"CNY": {},
 }
 
-type testLogger struct {
-	logs []string
-}
-
-func (l *testLogger) Debug(msg string, data ...service_logger.LogDataItem) {
-	l.logs = append(l.logs, fmt.Sprintf("[debug] %s (%v)", msg, data))
-}
-
-func (l *testLogger) Info(msg string, data ...service_logger.LogDataItem) {
-	l.logs = append(l.logs, fmt.Sprintf("[info] %s (%v)", msg, data))
-}
-
-func (l *testLogger) Warn(msg string, data ...service_logger.LogDataItem) {
-	l.logs = append(l.logs, fmt.Sprintf("[warn] %s (%v)", msg, data))
-}
-
-func (l *testLogger) Error(msg string, data ...service_logger.LogDataItem) {
-	l.logs = append(l.logs, fmt.Sprintf("[error] %s (%v)", msg, data))
-}
-
-func (l *testLogger) Fatal(msg string, data ...service_logger.LogDataItem) {
-	l.logs = append(l.logs, fmt.Sprintf("[error] %s (%v)", msg, data))
-}
-
-func (l *testLogger) SetTraceId(id string) {
-}
-
 func TestOnStartCommandShouldAnswerWithIntroMessage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	processor := exp_processor_mock.NewMockExpenseProcessor(ctrl)
 	reporter := exp_reporter_mock.NewMockExpenseReporter(ctrl)
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 	ctx := context.Background()
 	userId := int64(100)
 
@@ -89,7 +60,7 @@ func TestOnUnknownCommandShouldAnswerWithHelpMessage(t *testing.T) {
 
 	sender := msgmocks.NewMockMessageSender(ctrl)
 	sender.EXPECT().SendMessage("не знаю эту команду", int64(123), mainMenu)
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 
 	err := model.IncomingMessage(ctx, Message{
 		Text:   "some text",
@@ -119,7 +90,7 @@ func TestOnAddExpenseShouldAnswerWithSuccessMessage(t *testing.T) {
 	processor.EXPECT().AddExpense(wrapedCtx, 125.5, "RUB", "Кофе", date, userId)
 	processor.EXPECT().GetFreeLimit(wrapedCtx, "Кофе", "RUB", userId)
 
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 
 	err = model.IncomingMessage(ctx, Message{
 		Command:          addExpenseCommand,
@@ -151,7 +122,7 @@ func TestOnAddExpenseWithLimitSetShouldAnswerWithSuccessMessage(t *testing.T) {
 	processor.EXPECT().GetFreeLimit(wrapedCtx, "Кофе", "RUB", userId).Return(10.00, true, nil)
 
 	reporter := exp_reporter_mock.NewMockExpenseReporter(ctrl)
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 
 	err = model.IncomingMessage(ctx, Message{
 		Command:          addExpenseCommand,
@@ -183,7 +154,7 @@ func TestOnAddExpenseWithLimitReachedShouldAnswerWithSuccessMessage(t *testing.T
 	processor.EXPECT().GetFreeLimit(wrapedCtx, "Кофе", "RUB", userId).Return(-12.00, true, nil)
 
 	reporter := exp_reporter_mock.NewMockExpenseReporter(ctrl)
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 
 	err = model.IncomingMessage(ctx, Message{
 		Command:          addExpenseCommand,
@@ -206,7 +177,7 @@ func TestOnAddExpenseShouldAnswerWithFailMessage(t *testing.T) {
 
 	processor := exp_processor_mock.NewMockExpenseProcessor(ctrl)
 	reporter := exp_reporter_mock.NewMockExpenseReporter(ctrl)
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command: addExpenseCommand,
@@ -231,7 +202,7 @@ func TestOnGetWeekExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 	reporter.EXPECT().GetReport(wrapedCtx, model.Week, "RUB", userId).Return(&expense_reporter.ExpenseReport{IsEmpty: true}, nil)
 
 	processor := exp_processor_mock.NewMockExpenseProcessor(ctrl)
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command: getExpensesCommand,
@@ -257,7 +228,7 @@ func TestOnGetMonthExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 	reporter := exp_reporter_mock.NewMockExpenseReporter(ctrl)
 	reporter.EXPECT().GetReport(wrapedCtx, model.Month, "RUB", userId).Return(&expense_reporter.ExpenseReport{IsEmpty: true}, nil)
 
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          getExpensesCommand,
@@ -284,7 +255,7 @@ func TestOnGetYearExpenseShouldAnswerWithEmptyMessage(t *testing.T) {
 	reporter := exp_reporter_mock.NewMockExpenseReporter(ctrl)
 	reporter.EXPECT().GetReport(wrapedCtx, model.Year, "RUB", userId).Return(&expense_reporter.ExpenseReport{IsEmpty: true}, nil)
 
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          getExpensesCommand,
@@ -304,7 +275,7 @@ func TestOnGetExpenseShouldAnswerWithFailMessage(t *testing.T) {
 	processor := exp_processor_mock.NewMockExpenseProcessor(ctrl)
 	reporter := exp_reporter_mock.NewMockExpenseReporter(ctrl)
 
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          getExpensesCommand,
@@ -328,7 +299,7 @@ func TestOnRequestCurrencyChangeShouldAnswerWithSuccessMessage(t *testing.T) {
 	processor := exp_processor_mock.NewMockExpenseProcessor(ctrl)
 	reporter := exp_reporter_mock.NewMockExpenseReporter(ctrl)
 
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          requestCurrencyChangeCommand,
@@ -352,7 +323,7 @@ func TestOnSetCurrenctShouldAnswerWithSuccessMessage(t *testing.T) {
 	processor := exp_processor_mock.NewMockExpenseProcessor(ctrl)
 	reporter := exp_reporter_mock.NewMockExpenseReporter(ctrl)
 
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          setCurrencyCommand,
@@ -374,7 +345,7 @@ func TestOnSetCurrenctShouldAnswerWithFailMessage(t *testing.T) {
 	processor := exp_processor_mock.NewMockExpenseProcessor(ctrl)
 	reporter := exp_reporter_mock.NewMockExpenseReporter(ctrl)
 
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          setCurrencyCommand,
@@ -396,7 +367,7 @@ func TestOnSetLimitShouldAnswerWithFailMessage(t *testing.T) {
 	processor := exp_processor_mock.NewMockExpenseProcessor(ctrl)
 	reporter := exp_reporter_mock.NewMockExpenseReporter(ctrl)
 
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          setLimitCommand,
@@ -423,7 +394,7 @@ func TestOnSetLimitShouldAnswerWithSuccessMessage(t *testing.T) {
 
 	processor.EXPECT().SetLimit(wrapedCtx, "Дом", userId, 12500.50, "RUB").Return(12500.50, nil)
 
-	model := New(sender, currencies, processor, reporter, &testLogger{}, nil, nil)
+	model := New(sender, currencies, processor, reporter, nil, nil)
 
 	err := model.IncomingMessage(ctx, Message{
 		Command:          setLimitCommand,

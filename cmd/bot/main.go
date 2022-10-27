@@ -14,6 +14,7 @@ import (
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_processor"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	servicelogger "gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
 )
@@ -23,18 +24,14 @@ func main() {
 	if err != nil {
 		log.Fatal("config init failed:", err)
 	}
+	logger.SetLevel(config.Logger.Level)
 
-	logger, err := servicelogger.NewLogger(config.Logger.Level, config.Env)
-	if err != nil {
-		log.Fatal("logger init failed:", err)
-	}
-
-	tgClient, err := tg.New(config, logger)
+	tgClient, err := tg.New(config)
 	if err != nil {
 		log.Fatal("tg client init failed:", err)
 	}
 
-	converter := serviceconverter.NewConverter(exchangerate.NewGetter(logger))
+	converter := serviceconverter.NewConverter(exchangerate.NewGetter())
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()
@@ -68,7 +65,7 @@ func main() {
 	}()
 
 	// Трейсы
-	initTraces(logger)
+	initTraces()
 	defer func() {
 		if err := flushTraces(); err != nil {
 			logger.Error("traces flush err", servicelogger.LogDataItem{Key: "error", Value: err.Error()})
@@ -80,7 +77,6 @@ func main() {
 		converter.GetAvailableCurrencies(),
 		expense_processor.NewProcessor(repo, converter),
 		expense_reporter.NewReporter(repo, converter),
-		logger,
 		requestsTotalCounter,
 		responseTimeSummary,
 	)

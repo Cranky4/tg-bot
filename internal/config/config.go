@@ -9,14 +9,10 @@ import (
 
 const (
 	configFile = "config/config.yaml"
-
-	EnvDev  = "dev"
-	EnvProd = "prod"
 )
 
 type Config struct {
 	Token    string       `yaml:"token"`
-	Env      string       `yaml:"env"`
 	Storage  StorageConf  `yaml:"storage"`
 	Database DatabaseConf `yaml:"database"`
 	Logger   LoggerConf   `yaml:"logger"`
