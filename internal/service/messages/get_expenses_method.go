@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 )
 
 func (m *Model) getExpenses(ctx context.Context, msg Message) (string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "getExpenses")
+	defer span.Finish()
+
 	var expPeriod model.ExpensePeriod
 
 	switch msg.CommandArguments {

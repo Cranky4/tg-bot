@@ -1,8 +1,16 @@
 package servicemessages
 
-import "fmt"
+import (
+	"context"
+	"fmt"
 
-func (m *Model) setCurrency(msg Message) (string, error) {
+	"github.com/opentracing/opentracing-go"
+)
+
+func (m *Model) setCurrency(ctx context.Context, msg Message) (string, error) {
+	span, _ := opentracing.StartSpanFromContext(ctx, "setCurrency")
+	defer span.Finish()
+
 	if _, found := m.currencies[msg.CommandArguments]; !found {
 		return "", fmt.Errorf(errUnknownCurrency, msg.CommandArguments)
 	}

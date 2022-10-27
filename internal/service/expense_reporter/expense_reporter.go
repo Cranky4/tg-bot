@@ -3,6 +3,7 @@ package expense_reporter
 import (
 	"context"
 
+	"github.com/opentracing/opentracing-go"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
@@ -32,6 +33,9 @@ func NewReporter(repo repo.ExpensesRepository, conv serviceconverter.Converter) 
 }
 
 func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, currency string, userId int64) (*ExpenseReport, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "GetReport")
+	defer span.Finish()
+
 	expenses, err := r.repo.GetExpenses(ctx, period, userId)
 	if err != nil {
 		return nil, err

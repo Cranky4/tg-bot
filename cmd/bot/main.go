@@ -11,12 +11,11 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/tg"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
-	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
-	memoryrepo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository/memory"
-	sqlrepo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository/sql"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_processor"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
+	servicelogger "gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
 )
 
@@ -25,6 +24,7 @@ func main() {
 	if err != nil {
 		log.Fatal("config init failed:", err)
 	}
+	logger.SetLevel(config.Logger.Level)
 
 	tgClient, err := tg.New(config)
 	if err != nil {
@@ -36,26 +36,14 @@ func main() {
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()
 
-	var repo repo.ExpensesRepository
-	switch config.Storage.Mode {
-	case "memory":
-		repo = memoryrepo.NewRepository()
-	case "sql":
-		repo, err = sqlrepo.NewRepository(config.Database)
-		if err != nil {
-			log.Fatalf("cannot connect to db %s", err.Error())
-		}
-	default:
-		log.Fatalf("unknown repo mode %s", config.Storage)
-	}
+	repo := initRepo(*config)
 
 	// Загружаем курс валют
 	go func(ctx context.Context) {
 		if err := converter.Load(ctx); err != nil {
-			log.Println("exchange load err:", err)
+			logger.Error("exchange load err", servicelogger.LogDataItem{Key: "error", Value: err.Error()})
 			return
 		}
-		log.Println("loaded")
 	}(ctx)
 
 	// Выключаем слежение за обновлениями в клиенте телеги
@@ -63,18 +51,37 @@ func main() {
 		<-ctx.Done()
 
 		tgClient.Stop()
-
-		log.Println("receiving stopped...")
+		logger.Debug("receiving stopped...")
 	}(ctx)
 
-	messagesSerbice := servicemessages.New(
+	// Метрики
+	requestsTotalCounter := initTotalCounter()
+	responseTimeSummary := initResponseTime()
+	go func() {
+		err := startHTTPServer(config.Metrics.URL, config.Metrics.Port)
+		if err != nil {
+			logger.Error("Error while tracer flush", servicelogger.LogDataItem{Key: "error", Value: err.Error()})
+		}
+	}()
+
+	// Трейсы
+	initTraces()
+	defer func() {
+		if err := flushTraces(); err != nil {
+			logger.Error("traces flush err", servicelogger.LogDataItem{Key: "error", Value: err.Error()})
+		}
+	}()
+
+	messagesService := servicemessages.New(
 		tgClient,
 		converter.GetAvailableCurrencies(),
 		expense_processor.NewProcessor(repo, converter),
 		expense_reporter.NewReporter(repo, converter),
+		requestsTotalCounter,
+		responseTimeSummary,
 	)
 
-	tgClient.ListenUpdates(ctx, messagesSerbice)
+	tgClient.ListenUpdates(ctx, messagesService)
 
-	log.Println("bye...")
+	logger.Debug("bye...")
 }

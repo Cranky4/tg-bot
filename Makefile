@@ -27,7 +27,7 @@ test-coverage:
 	go test ./... -coverprofile=coverage.out && go tool cover -html=coverage.out
 
 run:
-	go run ${PACKAGE}
+	go run ${PACKAGE} 2>&1 | tee logs/bot.log
 
 run-seeder:
 	go run ${SEEDER}

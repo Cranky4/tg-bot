@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
@@ -61,6 +62,9 @@ func NewRepository(conf config.DatabaseConf) (repo.ExpensesRepository, error) {
 }
 
 func (r *repository) Add(ctx context.Context, ex model.Expense) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "Add")
+	defer span.Finish()
+
 	category, found, err := r.findCategory(ctx, ex.Category)
 	if err != nil {
 		return errors.Wrap(err, addExpenseErrMsg)
@@ -95,6 +99,9 @@ func (r *repository) Add(ctx context.Context, ex model.Expense) error {
 }
 
 func (r *repository) GetExpenses(ctx context.Context, p model.ExpensePeriod, userId int64) ([]*model.Expense, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "GetExpenses")
+	defer span.Finish()
+
 	exps, err := r.findExpenses(ctx, p.GetStart(time.Now()), userId)
 	if err != nil {
 		return []*model.Expense{}, errors.Wrap(err, getExpensesErrMsg)
@@ -104,6 +111,9 @@ func (r *repository) GetExpenses(ctx context.Context, p model.ExpensePeriod, use
 }
 
 func (r *repository) SetLimit(ctx context.Context, categoryName string, userId, amount int64) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SetLimit")
+	defer span.Finish()
+
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{})
 	if err != nil {
 		return errors.Wrap(err, setLimitErrMsg)
@@ -137,6 +147,9 @@ func (r *repository) SetLimit(ctx context.Context, categoryName string, userId, 
 }
 
 func (r *repository) GetFreeLimit(ctx context.Context, categoryName string, userId int64) (int64, bool, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "GetFreeLimit")
+	defer span.Finish()
+
 	category, found, err := r.findCategory(ctx, categoryName)
 	if err != nil {
 		return 0, false, errors.Wrap(err, limitReachedErrMsg)

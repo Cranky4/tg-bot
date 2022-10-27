@@ -1,8 +1,16 @@
 package servicemessages
 
-import "strings"
+import (
+	"context"
+	"strings"
 
-func (m *Model) showInfo() string {
+	"github.com/opentracing/opentracing-go"
+)
+
+func (m *Model) showInfo(ctx context.Context) string {
+	span, _ := opentracing.StartSpanFromContext(ctx, "showInfo")
+	defer span.Finish()
+
 	return strings.Join([]string{
 		"Привет, я буду считать твои деньги. Вот что я умею:\n",
 		addExpenseCommand,
