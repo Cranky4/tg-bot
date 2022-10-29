@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
@@ -37,6 +38,9 @@ func NewProcessor(repo repo.ExpensesRepository, conv serviceconverter.Converter)
 }
 
 func (p *processor) AddExpense(ctx context.Context, amount float64, currency string, category string, datetime time.Time, userId int64) (*model.Expense, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "AddExpense")
+	defer span.Finish()
+
 	convertedAmount := p.converter.ToRUB(amount, currency)
 
 	ex := model.Expense{
@@ -54,6 +58,9 @@ func (p *processor) AddExpense(ctx context.Context, amount float64, currency str
 }
 
 func (p *processor) GetFreeLimit(ctx context.Context, category, currency string, userId int64) (float64, bool, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "GetFreeLimit")
+	defer span.Finish()
+
 	freeLimit, hasLimit, err := p.repo.GetFreeLimit(ctx, strings.Trim(category, " "), userId)
 	if err != nil {
 		return 0, false, errors.Wrap(err, errSaveExpenseMessage)
@@ -65,6 +72,9 @@ func (p *processor) GetFreeLimit(ctx context.Context, category, currency string,
 }
 
 func (p *processor) SetLimit(ctx context.Context, category string, userId int64, amount float64, currency string) (float64, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "SetLimit")
+	defer span.Finish()
+
 	convertedAmount := p.converter.ToRUB(amount, currency)
 
 	if err := p.repo.SetLimit(ctx, category, userId, int64(convertedAmount*primitiveCurrencyMultiplier)); err != nil {

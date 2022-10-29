@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
 )
@@ -26,12 +27,18 @@ func NewRepository() repo.ExpensesRepository {
 }
 
 func (r *repository) Add(ctx context.Context, ex model.Expense) error {
+	span, _ := opentracing.StartSpanFromContext(ctx, "Add")
+	defer span.Finish()
+
 	r.expenses = append(r.expenses, &ex)
 
 	return nil
 }
 
 func (r *repository) GetExpenses(ctx context.Context, p model.ExpensePeriod, userId int64) ([]*model.Expense, error) {
+	span, _ := opentracing.StartSpanFromContext(ctx, "GetExpenses")
+	defer span.Finish()
+
 	exps := make([]*model.Expense, 0, len(r.expenses))
 
 	periodStart := p.GetStart(time.Now())
@@ -46,12 +53,18 @@ func (r *repository) GetExpenses(ctx context.Context, p model.ExpensePeriod, use
 }
 
 func (r *repository) SetLimit(ctx context.Context, category string, userId, amount int64) error {
+	span, _ := opentracing.StartSpanFromContext(ctx, "SetLimit")
+	defer span.Finish()
+
 	r.limits[strings.ToLower(category)] = &limit{amount: amount, userId: userId}
 
 	return nil
 }
 
 func (r *repository) GetFreeLimit(ctx context.Context, category string, userId int64) (int64, bool, error) {
+	span, _ := opentracing.StartSpanFromContext(ctx, "GetFreeLimit")
+	defer span.Finish()
+
 	loweredCategory := strings.ToLower(category)
 	if _, ex := r.limits[loweredCategory]; !ex {
 		return 0, false, nil

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/opentracing/opentracing-go"
 	"github.com/stretchr/testify/assert"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
@@ -30,15 +31,17 @@ var testConverter = serviceconverter.NewConverter(&testGetter{})
 
 func TestAddExpenseWillReturnExpense(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	ctx := context.Background()
 	repo := repomocks.NewMockExpensesRepository(ctrl)
 	userId := int64(100)
 	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
 	assert.NoError(t, err)
 
+	ctx := context.Background()
+	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
+
 	processor := NewProcessor(repo, testConverter)
 
-	repo.EXPECT().Add(ctx, model.Expense{
+	repo.EXPECT().Add(wrapedCtx, model.Expense{
 		Amount:   12550,
 		Category: "Категория",
 		Datetime: date,
@@ -52,15 +55,16 @@ func TestAddExpenseWillReturnExpense(t *testing.T) {
 
 func TestAddExpenseWillReturnRepositoryError(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	ctx := context.Background()
 	repo := repomocks.NewMockExpensesRepository(ctrl)
 	userId := int64(100)
 	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
 	assert.NoError(t, err)
+	ctx := context.Background()
+	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
 
 	processor := NewProcessor(repo, testConverter)
 
-	repo.EXPECT().Add(ctx, model.Expense{
+	repo.EXPECT().Add(wrapedCtx, model.Expense{
 		Amount:   12550,
 		Category: "Категория",
 		Datetime: date,
@@ -74,13 +78,15 @@ func TestAddExpenseWillReturnRepositoryError(t *testing.T) {
 
 func TestGetFreeLimitWithSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	ctx := context.Background()
 	repo := repomocks.NewMockExpensesRepository(ctrl)
 	userId := int64(100)
 
+	ctx := context.Background()
+	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
+
 	processor := NewProcessor(repo, testConverter)
 
-	repo.EXPECT().GetFreeLimit(ctx, "Категория", userId).Return(int64(10000), true, nil)
+	repo.EXPECT().GetFreeLimit(wrapedCtx, "Категория", userId).Return(int64(10000), true, nil)
 
 	limit, has, err := processor.GetFreeLimit(ctx, "Категория", "RUB", userId)
 	assert.Equal(t, 100.00, limit)
@@ -90,13 +96,16 @@ func TestGetFreeLimitWithSuccess(t *testing.T) {
 
 func TestGetFreeLimitWithNoLimitSet(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	ctx := context.Background()
+
 	repo := repomocks.NewMockExpensesRepository(ctrl)
 	userId := int64(100)
 
 	processor := NewProcessor(repo, testConverter)
 
-	repo.EXPECT().GetFreeLimit(ctx, "Категория", userId).Return(int64(0), false, nil)
+	ctx := context.Background()
+	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
+
+	repo.EXPECT().GetFreeLimit(wrapedCtx, "Категория", userId).Return(int64(0), false, nil)
 
 	limit, has, err := processor.GetFreeLimit(ctx, "Категория", "RUB", userId)
 	assert.Equal(t, 0.0, limit)
@@ -106,13 +115,15 @@ func TestGetFreeLimitWithNoLimitSet(t *testing.T) {
 
 func TestGetFreeLimitWithRepoError(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	ctx := context.Background()
 	repo := repomocks.NewMockExpensesRepository(ctrl)
 	userId := int64(100)
 
 	processor := NewProcessor(repo, testConverter)
 
-	repo.EXPECT().GetFreeLimit(ctx, "Категория", userId).Return(int64(0), false, errors.New("database error"))
+	ctx := context.Background()
+	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
+
+	repo.EXPECT().GetFreeLimit(wrapedCtx, "Категория", userId).Return(int64(0), false, errors.New("database error"))
 
 	limit, has, err := processor.GetFreeLimit(ctx, "Категория", "RUB", userId)
 	assert.Equal(t, 0.0, limit)
@@ -122,13 +133,15 @@ func TestGetFreeLimitWithRepoError(t *testing.T) {
 
 func TestSetLimitWithSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	ctx := context.Background()
 	repo := repomocks.NewMockExpensesRepository(ctrl)
 	userId := int64(100)
 
+	ctx := context.Background()
+	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
+
 	processor := NewProcessor(repo, testConverter)
 
-	repo.EXPECT().SetLimit(ctx, "Категория", userId, int64(100000))
+	repo.EXPECT().SetLimit(wrapedCtx, "Категория", userId, int64(100000))
 
 	limit, err := processor.SetLimit(ctx, "Категория", userId, 1000.00, "RUB")
 	assert.Equal(t, 1000.0, limit)
@@ -137,13 +150,15 @@ func TestSetLimitWithSuccess(t *testing.T) {
 
 func TestSetLimitWithRepoError(t *testing.T) {
 	ctrl := gomock.NewController(t)
-	ctx := context.Background()
 	repo := repomocks.NewMockExpensesRepository(ctrl)
 	userId := int64(100)
 
+	ctx := context.Background()
+	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
+
 	processor := NewProcessor(repo, testConverter)
 
-	repo.EXPECT().SetLimit(ctx, "Категория", userId, int64(100000)).Return(errors.New("database error"))
+	repo.EXPECT().SetLimit(wrapedCtx, "Категория", userId, int64(100000)).Return(errors.New("database error"))
 
 	limit, err := processor.SetLimit(ctx, "Категория", userId, 1000.00, "RUB")
 	assert.Equal(t, 0.0, limit)

@@ -18,9 +18,7 @@ type exchRatesGetter struct {
 }
 
 func NewGetter() RatesGetter {
-	return &exchRatesGetter{
-		url: URL,
-	}
+	return &exchRatesGetter{url: URL}
 }
 
 type Rates struct {

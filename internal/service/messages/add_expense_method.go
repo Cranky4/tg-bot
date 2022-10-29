@@ -7,10 +7,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 )
 
 func (m *Model) addExpense(ctx context.Context, msg Message) (string, error) {
+	// Трейсы
+	span, ctx := opentracing.StartSpanFromContext(ctx, "addExpense")
+	defer span.Finish()
+
 	parts := strings.Split(msg.CommandArguments, ";")
 
 	if len(parts) != 3 {

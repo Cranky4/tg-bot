@@ -6,10 +6,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 )
 
 func (m *Model) setLimit(ctx context.Context, msg Message) (string, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "setLimit")
+	defer span.Finish()
+
 	parts := strings.Split(msg.CommandArguments, ";")
 
 	if len(parts) != 2 {
