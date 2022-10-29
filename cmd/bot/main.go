@@ -81,7 +81,7 @@ func main() {
 	messagesService := servicemessages.New(
 		tgClient,
 		converter.GetAvailableCurrencies(),
-		expense_processor.NewProcessor(repo, converter),
+		expense_processor.NewProcessor(repo, converter, cache),
 		expense_reporter.NewReporter(repo, converter, cache),
 		requestsTotalCounter,
 		responseTimeSummary,

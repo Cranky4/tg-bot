@@ -12,7 +12,6 @@ import (
 )
 
 func (m *Model) addExpense(ctx context.Context, msg Message) (string, error) {
-	// Трейсы
 	span, ctx := opentracing.StartSpanFromContext(ctx, "addExpense")
 	defer span.Finish()
 

@@ -44,14 +44,9 @@ func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, cu
 	span, ctx := opentracing.StartSpanFromContext(ctx, "GetReport")
 	defer span.Finish()
 
-	cacheKey := fmt.Sprintf("%d-%v-%s", userId, period, time.Now().Format("2006-01-02"))
-
-	value, ok := r.cache.Get(cacheKey)
+	report, ok := r.getCached(ctx, userId, period)
 	if ok {
-		report, ok := value.(*ExpenseReport)
-		if ok {
-			return report, nil
-		}
+		return report, nil
 	}
 
 	expenses, err := r.repo.GetExpenses(ctx, period, userId)
@@ -60,7 +55,7 @@ func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, cu
 	}
 
 	result := make(map[string]int64) // [категория]сумма
-	report := &ExpenseReport{
+	report = &ExpenseReport{
 		Rows: make(map[string]float64),
 	}
 
@@ -80,7 +75,25 @@ func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, cu
 		report.Rows[category] = converted
 	}
 
-	r.cache.Set(cacheKey, report)
+	r.cache.Set(getCacheKey(userId, period), report)
 
 	return report, nil
+}
+
+func (r *reporter) getCached(ctx context.Context, userId int64, period model.ExpensePeriod) (*ExpenseReport, bool) {
+	span, _ := opentracing.StartSpanFromContext(ctx, "getCached")
+	defer span.Finish()
+
+	value, ok := r.cache.Get(getCacheKey(userId, period))
+	if ok {
+		report, ok := value.(*ExpenseReport)
+		if ok {
+			return report, true
+		}
+	}
+	return nil, false
+}
+
+func getCacheKey(userId int64, period model.ExpensePeriod) string {
+	return fmt.Sprintf("%d-%v-%s", userId, period, time.Now().Format("2006-01-02"))
 }

@@ -3,6 +3,7 @@ package expense_processor
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 	repomocks "gitlab.ozon.dev/cranky4/tg-bot/internal/repository/mocks"
+	cachemocks "gitlab.ozon.dev/cranky4/tg-bot/internal/service/cache/mocks"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 )
 
@@ -39,7 +41,12 @@ func TestAddExpenseWillReturnExpense(t *testing.T) {
 	ctx := context.Background()
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
 
-	processor := NewProcessor(repo, testConverter)
+	cache := cachemocks.NewMockCache(ctrl)
+	cache.EXPECT().Del(fmt.Sprintf("%d-%v-%s", userId, model.Week, time.Now().Format("2006-01-02")))
+	cache.EXPECT().Del(fmt.Sprintf("%d-%v-%s", userId, model.Month, time.Now().Format("2006-01-02")))
+	cache.EXPECT().Del(fmt.Sprintf("%d-%v-%s", userId, model.Year, time.Now().Format("2006-01-02")))
+
+	processor := NewProcessor(repo, testConverter, cache)
 
 	repo.EXPECT().Add(wrapedCtx, model.Expense{
 		Amount:   12550,
@@ -62,7 +69,9 @@ func TestAddExpenseWillReturnRepositoryError(t *testing.T) {
 	ctx := context.Background()
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
 
-	processor := NewProcessor(repo, testConverter)
+	cache := cachemocks.NewMockCache(ctrl)
+
+	processor := NewProcessor(repo, testConverter, cache)
 
 	repo.EXPECT().Add(wrapedCtx, model.Expense{
 		Amount:   12550,
@@ -84,7 +93,9 @@ func TestGetFreeLimitWithSuccess(t *testing.T) {
 	ctx := context.Background()
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
 
-	processor := NewProcessor(repo, testConverter)
+	cache := cachemocks.NewMockCache(ctrl)
+
+	processor := NewProcessor(repo, testConverter, cache)
 
 	repo.EXPECT().GetFreeLimit(wrapedCtx, "Категория", userId).Return(int64(10000), true, nil)
 
@@ -100,7 +111,9 @@ func TestGetFreeLimitWithNoLimitSet(t *testing.T) {
 	repo := repomocks.NewMockExpensesRepository(ctrl)
 	userId := int64(100)
 
-	processor := NewProcessor(repo, testConverter)
+	cache := cachemocks.NewMockCache(ctrl)
+
+	processor := NewProcessor(repo, testConverter, cache)
 
 	ctx := context.Background()
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
@@ -118,7 +131,9 @@ func TestGetFreeLimitWithRepoError(t *testing.T) {
 	repo := repomocks.NewMockExpensesRepository(ctrl)
 	userId := int64(100)
 
-	processor := NewProcessor(repo, testConverter)
+	cache := cachemocks.NewMockCache(ctrl)
+
+	processor := NewProcessor(repo, testConverter, cache)
 
 	ctx := context.Background()
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
@@ -139,7 +154,9 @@ func TestSetLimitWithSuccess(t *testing.T) {
 	ctx := context.Background()
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
 
-	processor := NewProcessor(repo, testConverter)
+	cache := cachemocks.NewMockCache(ctrl)
+
+	processor := NewProcessor(repo, testConverter, cache)
 
 	repo.EXPECT().SetLimit(wrapedCtx, "Категория", userId, int64(100000))
 
@@ -156,7 +173,9 @@ func TestSetLimitWithRepoError(t *testing.T) {
 	ctx := context.Background()
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
 
-	processor := NewProcessor(repo, testConverter)
+	cache := cachemocks.NewMockCache(ctrl)
+
+	processor := NewProcessor(repo, testConverter, cache)
 
 	repo.EXPECT().SetLimit(wrapedCtx, "Категория", userId, int64(100000)).Return(errors.New("database error"))
 

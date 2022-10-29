@@ -2,6 +2,7 @@ package expense_processor
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/cache"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 )
 
@@ -28,12 +30,14 @@ type ExpenseProcessor interface {
 type processor struct {
 	repo      repo.ExpensesRepository
 	converter serviceconverter.Converter
+	cache     cache.Cache
 }
 
-func NewProcessor(repo repo.ExpensesRepository, conv serviceconverter.Converter) ExpenseProcessor {
+func NewProcessor(repo repo.ExpensesRepository, conv serviceconverter.Converter, cache cache.Cache) ExpenseProcessor {
 	return &processor{
 		repo:      repo,
 		converter: conv,
+		cache:     cache,
 	}
 }
 
@@ -52,6 +56,12 @@ func (p *processor) AddExpense(ctx context.Context, amount float64, currency str
 
 	if err := p.repo.Add(ctx, ex); err != nil {
 		return nil, errors.Wrap(err, errSaveExpenseMessage)
+	}
+
+	// сбрасываем кеш при добавлении новой траты
+	for _, period := range []model.ExpensePeriod{model.Week, model.Month, model.Year} {
+		cacheKey := fmt.Sprintf("%d-%v-%s", userId, period, time.Now().Format("2006-01-02"))
+		p.cache.Del(cacheKey)
 	}
 
 	return &ex, nil
