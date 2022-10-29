@@ -3,6 +3,7 @@ package expense_reporter
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 	repomocks "gitlab.ozon.dev/cranky4/tg-bot/internal/repository/mocks"
+	cachemocks "gitlab.ozon.dev/cranky4/tg-bot/internal/service/cache/mocks"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 )
 
@@ -33,15 +35,25 @@ func TestGetReportWithSuccess(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := repomocks.NewMockExpensesRepository(ctrl)
 	userId := int64(100)
+	period := model.Week
+
 	date, err := time.Parse("2006-01-02 15:04:05", "2022-10-01 12:56:00")
 	assert.NoError(t, err)
 
 	ctx := context.Background()
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
 
-	reporter := NewReporter(repo, testConverter)
+	cache := cachemocks.NewMockCache(ctrl)
+	cacheKey := fmt.Sprintf("%d-%v-%s", userId, period, time.Now().Format("2006-01-02"))
+	cache.EXPECT().Get(cacheKey).Return(nil, false)
+	cache.EXPECT().Set(cacheKey, &ExpenseReport{
+		IsEmpty: false,
+		Rows:    map[string]float64{"Категория": 125},
+	})
 
-	repo.EXPECT().GetExpenses(wrapedCtx, model.Week, userId).Return([]*model.Expense{
+	reporter := NewReporter(repo, testConverter, cache)
+
+	repo.EXPECT().GetExpenses(wrapedCtx, period, userId).Return([]*model.Expense{
 		{
 			Amount:   12550,
 			Category: "Категория",
@@ -50,7 +62,7 @@ func TestGetReportWithSuccess(t *testing.T) {
 		},
 	}, nil)
 
-	report, err := reporter.GetReport(ctx, model.Week, "RUB", userId)
+	report, err := reporter.GetReport(ctx, period, "RUB", userId)
 	assert.NoError(t, err)
 	assert.False(t, report.IsEmpty)
 	assert.Len(t, report.Rows, 1)
@@ -60,15 +72,24 @@ func TestGetReportWithEmptyReport(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := repomocks.NewMockExpensesRepository(ctrl)
 	userId := int64(100)
+	period := model.Week
 
-	reporter := NewReporter(repo, testConverter)
+	cache := cachemocks.NewMockCache(ctrl)
+	cacheKey := fmt.Sprintf("%d-%v-%s", userId, period, time.Now().Format("2006-01-02"))
+	cache.EXPECT().Get(cacheKey).Return(nil, false)
+	cache.EXPECT().Set(cacheKey, &ExpenseReport{
+		IsEmpty: true,
+		Rows:    map[string]float64{},
+	})
+
+	reporter := NewReporter(repo, testConverter, cache)
 
 	ctx := context.Background()
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
 
-	repo.EXPECT().GetExpenses(wrapedCtx, model.Week, userId).Return([]*model.Expense{}, nil)
+	repo.EXPECT().GetExpenses(wrapedCtx, period, userId).Return([]*model.Expense{}, nil)
 
-	report, err := reporter.GetReport(ctx, model.Week, "RUB", userId)
+	report, err := reporter.GetReport(ctx, period, "RUB", userId)
 	assert.NoError(t, err)
 	assert.True(t, report.IsEmpty)
 	assert.Len(t, report.Rows, 0)
@@ -78,15 +99,20 @@ func TestGetReportWithDBError(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo := repomocks.NewMockExpensesRepository(ctrl)
 	userId := int64(100)
+	period := model.Week
 
 	ctx := context.Background()
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
 
-	reporter := NewReporter(repo, testConverter)
+	cache := cachemocks.NewMockCache(ctrl)
+	cacheKey := fmt.Sprintf("%d-%v-%s", userId, period, time.Now().Format("2006-01-02"))
+	cache.EXPECT().Get(cacheKey).Return(nil, false)
 
-	repo.EXPECT().GetExpenses(wrapedCtx, model.Week, userId).Return([]*model.Expense{}, errors.New("database error"))
+	reporter := NewReporter(repo, testConverter, cache)
 
-	report, err := reporter.GetReport(ctx, model.Week, "RUB", userId)
+	repo.EXPECT().GetExpenses(wrapedCtx, period, userId).Return([]*model.Expense{}, errors.New("database error"))
+
+	report, err := reporter.GetReport(ctx, period, "RUB", userId)
 	assert.Error(t, err)
 	assert.Nil(t, report)
 }

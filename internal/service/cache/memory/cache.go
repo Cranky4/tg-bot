@@ -1,16 +1,11 @@
-package cache
+package memory
 
 import (
 	"container/list"
 	"sync"
-)
 
-type Cache interface {
-	Get(key string) (any, bool)
-	Set(key string, value any)
-	Len() int
-	Del(key string) bool
-}
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/cache"
+)
 
 type LRUCache struct {
 	mu    *sync.RWMutex
@@ -24,7 +19,7 @@ type LRUCacheItem struct {
 	Value any
 }
 
-func NewLRUCache(len int) Cache {
+func NewLRUCache(len int) cache.Cache {
 	return &LRUCache{
 		mu:    &sync.RWMutex{},
 		items: make(map[string]*list.Element, len),

@@ -2,14 +2,20 @@ package expense_reporter
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/opentracing/opentracing-go"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 	repo "gitlab.ozon.dev/cranky4/tg-bot/internal/repository"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/cache"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 )
 
-const primitiveCurrencyMultiplier = 100
+const (
+	primitiveCurrencyMultiplier = 100
+	dateFormat                  = "2006-01-02 15:04:05"
+)
 
 type ExpenseReporter interface {
 	GetReport(ctx context.Context, period model.ExpensePeriod, currencty string, userId int64) (*ExpenseReport, error)
@@ -23,18 +29,30 @@ type ExpenseReport struct {
 type reporter struct {
 	repo      repo.ExpensesRepository
 	converter serviceconverter.Converter
+	cache     cache.Cache
 }
 
-func NewReporter(repo repo.ExpensesRepository, conv serviceconverter.Converter) ExpenseReporter {
+func NewReporter(repo repo.ExpensesRepository, conv serviceconverter.Converter, cache cache.Cache) ExpenseReporter {
 	return &reporter{
 		repo:      repo,
 		converter: conv,
+		cache:     cache,
 	}
 }
 
 func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, currency string, userId int64) (*ExpenseReport, error) {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "GetReport")
 	defer span.Finish()
+
+	cacheKey := fmt.Sprintf("%d-%v-%s", userId, period, time.Now().Format("2006-01-02"))
+
+	value, ok := r.cache.Get(cacheKey)
+	if ok {
+		report, ok := value.(*ExpenseReport)
+		if ok {
+			return report, nil
+		}
+	}
 
 	expenses, err := r.repo.GetExpenses(ctx, period, userId)
 	if err != nil {
@@ -61,6 +79,8 @@ func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, cu
 
 		report.Rows[category] = converted
 	}
+
+	r.cache.Set(cacheKey, report)
 
 	return report, nil
 }

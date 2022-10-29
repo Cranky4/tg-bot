@@ -12,3 +12,7 @@ logger:
 metrics:
   url: "/metrics"
   port: 8080
+
+cache:
+  mode: "memory" # redis
+  length: 10
