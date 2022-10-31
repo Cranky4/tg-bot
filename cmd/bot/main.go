@@ -73,7 +73,7 @@ func main() {
 	}()
 
 	// Кэш
-	cache, err := initCache(config.Cache)
+	cache, err := initCache(*config)
 	if err != nil {
 		log.Fatal("cache init failed:", err)
 	}

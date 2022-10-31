@@ -1,13 +1,17 @@
 package cache
 
+import (
+	"context"
+	"time"
+)
+
 const (
 	MemoryMode = "memory"
 	RedisMode  = "redis"
 )
 
 type Cache interface {
-	Get(key string) (any, bool)
-	Set(key string, value any)
-	Len() int
-	Del(key string) bool
+	Set(ctx context.Context, key string, value any, expiration time.Duration) error
+	Get(ctx context.Context, key string) (any, bool, error)
+	Del(ctx context.Context, key string) (bool, error)
 }

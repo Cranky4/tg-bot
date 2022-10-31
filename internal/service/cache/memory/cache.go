@@ -2,7 +2,9 @@ package memory
 
 import (
 	"container/list"
+	"context"
 	"sync"
+	"time"
 
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/cache"
 )
@@ -28,7 +30,7 @@ func NewLRUCache(len int) cache.Cache {
 	}
 }
 
-func (c *LRUCache) Set(key string, value any) {
+func (c *LRUCache) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -45,14 +47,16 @@ func (c *LRUCache) Set(key string, value any) {
 	elem := c.lru.PushFront(&LRUCacheItem{Key: key, Value: value})
 
 	c.items[key] = elem
+
+	return nil
 }
 
-func (c *LRUCache) Get(key string) (any, bool) {
+func (c *LRUCache) Get(ctx context.Context, key string) (any, bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if !c.exists(key) {
-		return nil, false
+		return nil, false, nil
 	}
 
 	val := c.items[key]
@@ -60,25 +64,25 @@ func (c *LRUCache) Get(key string) (any, bool) {
 
 	item, ok := val.Value.(*LRUCacheItem)
 	if ok {
-		return item.Value, true
+		return item.Value, true, nil
 	}
 
-	return nil, false
+	return nil, false, nil
 }
 
-func (c *LRUCache) Len() int {
+func (c *LRUCache) Len() (int, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	return c.lru.Len()
+	return c.lru.Len(), nil
 }
 
-func (c *LRUCache) Del(key string) bool {
+func (c *LRUCache) Del(ctx context.Context, key string) (bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if !c.exists(key) {
-		return false
+		return false, nil
 	}
 
 	val := c.items[key]
@@ -86,10 +90,10 @@ func (c *LRUCache) Del(key string) bool {
 	item, ok := c.lru.Remove(val).(*LRUCacheItem)
 	if ok {
 		delete(c.items, item.Key)
-		return true
+		return true, nil
 	}
 
-	return false
+	return false, nil
 }
 
 func (c *LRUCache) exists(key string) bool {

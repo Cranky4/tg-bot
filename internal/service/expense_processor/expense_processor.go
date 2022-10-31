@@ -61,7 +61,10 @@ func (p *processor) AddExpense(ctx context.Context, amount float64, currency str
 	// сбрасываем кеш при добавлении новой траты
 	for _, period := range []model.ExpensePeriod{model.Week, model.Month, model.Year} {
 		cacheKey := fmt.Sprintf("%d-%v-%s", userId, period, time.Now().Format("2006-01-02"))
-		p.cache.Del(cacheKey)
+		_, err := p.cache.Del(ctx, cacheKey)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &ex, nil

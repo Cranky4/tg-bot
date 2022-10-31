@@ -42,9 +42,9 @@ func TestAddExpenseWillReturnExpense(t *testing.T) {
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
 
 	cache := cachemocks.NewMockCache(ctrl)
-	cache.EXPECT().Del(fmt.Sprintf("%d-%v-%s", userId, model.Week, time.Now().Format("2006-01-02")))
-	cache.EXPECT().Del(fmt.Sprintf("%d-%v-%s", userId, model.Month, time.Now().Format("2006-01-02")))
-	cache.EXPECT().Del(fmt.Sprintf("%d-%v-%s", userId, model.Year, time.Now().Format("2006-01-02")))
+	cache.EXPECT().Del(wrapedCtx, fmt.Sprintf("%d-%v-%s", userId, model.Week, time.Now().Format("2006-01-02")))
+	cache.EXPECT().Del(wrapedCtx, fmt.Sprintf("%d-%v-%s", userId, model.Month, time.Now().Format("2006-01-02")))
+	cache.EXPECT().Del(wrapedCtx, fmt.Sprintf("%d-%v-%s", userId, model.Year, time.Now().Format("2006-01-02")))
 
 	processor := NewProcessor(repo, testConverter, cache)
 

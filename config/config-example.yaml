@@ -15,4 +15,9 @@ metrics:
 
 cache:
   mode: "memory" # redis
-  length: 10
+  length: 10 # только для memory кеша
+
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0

@@ -2,6 +2,7 @@ package expense_reporter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -26,6 +27,10 @@ type ExpenseReport struct {
 	Rows    map[string]float64
 }
 
+func (r ExpenseReport) MarshalBinary() (data []byte, err error) {
+	return json.Marshal(r)
+}
+
 type reporter struct {
 	repo      repo.ExpensesRepository
 	converter serviceconverter.Converter
@@ -44,9 +49,13 @@ func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, cu
 	span, ctx := opentracing.StartSpanFromContext(ctx, "GetReport")
 	defer span.Finish()
 
-	report, ok := r.getCached(ctx, userId, period)
+	report, ok, err := r.getCached(ctx, userId, period)
+	if err != nil {
+		return nil, err
+	}
+
 	if ok {
-		return report, nil
+		return &report, nil
 	}
 
 	expenses, err := r.repo.GetExpenses(ctx, period, userId)
@@ -55,7 +64,7 @@ func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, cu
 	}
 
 	result := make(map[string]int64) // [категория]сумма
-	report = &ExpenseReport{
+	report = ExpenseReport{
 		Rows: make(map[string]float64),
 	}
 
@@ -75,23 +84,37 @@ func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, cu
 		report.Rows[category] = converted
 	}
 
-	r.cache.Set(getCacheKey(userId, period), report)
+	err = r.cache.Set(ctx, getCacheKey(userId, period), report, 24*time.Hour)
+	if err != nil {
+		return nil, err
+	}
 
-	return report, nil
+	return &report, nil
 }
 
-func (r *reporter) getCached(ctx context.Context, userId int64, period model.ExpensePeriod) (*ExpenseReport, bool) {
+func (r *reporter) getCached(ctx context.Context, userId int64, period model.ExpensePeriod) (ExpenseReport, bool, error) {
 	span, _ := opentracing.StartSpanFromContext(ctx, "getCached")
 	defer span.Finish()
 
-	value, ok := r.cache.Get(getCacheKey(userId, period))
+	value, ok, err := r.cache.Get(ctx, getCacheKey(userId, period))
+	if err != nil {
+		return ExpenseReport{}, false, err
+	}
+
 	if ok {
-		report, ok := value.(*ExpenseReport)
+		jsonReport, ok := value.(string)
+
 		if ok {
-			return report, true
+			report := ExpenseReport{}
+			if err := json.Unmarshal([]byte(jsonReport), &report); err != nil {
+				return ExpenseReport{}, false, err
+			}
+
+			return report, true, nil
 		}
 	}
-	return nil, false
+
+	return ExpenseReport{}, false, nil
 }
 
 func getCacheKey(userId int64, period model.ExpensePeriod) string {
