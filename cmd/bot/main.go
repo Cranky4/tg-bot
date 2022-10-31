@@ -40,7 +40,7 @@ func main() {
 
 	// Загружаем курс валют
 	go func(ctx context.Context) {
-		if err := converter.Load(ctx); err != nil {
+		if err = converter.Load(ctx); err != nil {
 			logger.Error("exchange load err", servicelogger.LogDataItem{Key: "error", Value: err.Error()})
 			return
 		}
@@ -58,7 +58,7 @@ func main() {
 	requestsTotalCounter := initTotalCounter()
 	responseTimeSummary := initResponseTime()
 	go func() {
-		err := startHTTPServer(config.Metrics.URL, config.Metrics.Port)
+		err = startHTTPServer(config.Metrics.URL, config.Metrics.Port)
 		if err != nil {
 			logger.Error("Error while tracer flush", servicelogger.LogDataItem{Key: "error", Value: err.Error()})
 		}
@@ -67,16 +67,22 @@ func main() {
 	// Трейсы
 	initTraces()
 	defer func() {
-		if err := flushTraces(); err != nil {
+		if err = flushTraces(); err != nil {
 			logger.Error("traces flush err", servicelogger.LogDataItem{Key: "error", Value: err.Error()})
 		}
 	}()
 
+	// Кэш
+	cache, err := initCache(*config)
+	if err != nil {
+		log.Fatal("cache init failed:", err)
+	}
+
 	messagesService := servicemessages.New(
 		tgClient,
 		converter.GetAvailableCurrencies(),
-		expense_processor.NewProcessor(repo, converter),
-		expense_reporter.NewReporter(repo, converter),
+		expense_processor.NewProcessor(repo, converter, cache),
+		expense_reporter.NewReporter(repo, converter, cache),
 		requestsTotalCounter,
 		responseTimeSummary,
 	)

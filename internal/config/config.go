@@ -17,6 +17,8 @@ type Config struct {
 	Database DatabaseConf `yaml:"database"`
 	Logger   LoggerConf   `yaml:"logger"`
 	Metrics  MetricsConf  `yaml:"metrics"`
+	Cache    CacheConf    `yaml:"cache"`
+	Redis    RedisConf    `yaml:"redis"`
 }
 
 type TokenGetter interface {
@@ -39,6 +41,17 @@ type LoggerConf struct {
 type MetricsConf struct {
 	URL  string `yaml:"url"`
 	Port int    `yaml:"port"`
+}
+
+type CacheConf struct {
+	Mode   string `yaml:"mode"`
+	Length int    `yaml:"length"`
+}
+
+type RedisConf struct {
+	Addr     string `yaml:"addr"`
+	Password string `yaml:"password"`
+	DB       int    `yaml:"db"`
 }
 
 func New() (*Config, error) {
