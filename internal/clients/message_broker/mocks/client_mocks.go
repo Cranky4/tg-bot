@@ -35,16 +35,30 @@ func (m *MockMessageBroker) EXPECT() *MockMessageBrokerMockRecorder {
 	return m.recorder
 }
 
-// Produce mocks base method.
-func (m *MockMessageBroker) Produce(ctx context.Context, topic, key string, value []byte, meta []messagebroker.MetaItem) error {
+// Consume mocks base method.
+func (m *MockMessageBroker) Consume(ctx context.Context, topic string, out chan<- messagebroker.Message) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Produce", ctx, topic, key, value, meta)
+	ret := m.ctrl.Call(m, "Consume", ctx, topic, out)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Consume indicates an expected call of Consume.
+func (mr *MockMessageBrokerMockRecorder) Consume(ctx, topic, out interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Consume", reflect.TypeOf((*MockMessageBroker)(nil).Consume), ctx, topic, out)
+}
+
+// Produce mocks base method.
+func (m *MockMessageBroker) Produce(ctx context.Context, topic string, message messagebroker.Message) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Produce", ctx, topic, message)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Produce indicates an expected call of Produce.
-func (mr *MockMessageBrokerMockRecorder) Produce(ctx, topic, key, value, meta interface{}) *gomock.Call {
+func (mr *MockMessageBrokerMockRecorder) Produce(ctx, topic, message interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Produce", reflect.TypeOf((*MockMessageBroker)(nil).Produce), ctx, topic, key, value, meta)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Produce", reflect.TypeOf((*MockMessageBroker)(nil).Produce), ctx, topic, message)
 }

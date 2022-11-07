@@ -20,10 +20,17 @@ func TestSendRequestReport(t *testing.T) {
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
 
 	client := clientmocks.NewMockMessageBroker(ctrl)
-	client.EXPECT().Produce(wrapedCtx, "queue", "123", []byte(fmt.Sprintf("%d", model.Week)), []messagebroker.MetaItem{
-		{Key: "userId", Value: []byte(fmt.Sprintf("%d", 123))},
-		{Key: "currency", Value: []byte("RUB")},
-	})
+	client.EXPECT().Produce(
+		wrapedCtx,
+		"queue",
+		messagebroker.Message{
+			Key:   "123",
+			Value: []byte(fmt.Sprintf("%d", model.Week)),
+			Meta: []messagebroker.MetaItem{
+				{Key: "userId", Value: []byte(fmt.Sprintf("%d", 123))},
+				{Key: "currency", Value: []byte("RUB")},
+			},
+		})
 
 	requester := NewReportRequester(client, "queue")
 

@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/Shopify/sarama"
@@ -12,7 +13,8 @@ import (
 )
 
 type kafkaClient struct {
-	producer sarama.SyncProducer
+	producer      sarama.SyncProducer
+	consumerGroup sarama.ConsumerGroup
 }
 
 func NewKafkaCient(conf config.MessageBrokerConf) (messagebroker.MessageBroker, error) {
@@ -21,25 +23,37 @@ func NewKafkaCient(conf config.MessageBrokerConf) (messagebroker.MessageBroker, 
 		return nil, err
 	}
 
-	return &kafkaClient{producer: producer}, nil
+	consumerGroup, err := newConsumerGroup(conf)
+	if err != nil {
+		return nil, err
+	}
+
+	return &kafkaClient{producer: producer, consumerGroup: consumerGroup}, nil
 }
 
-func (c *kafkaClient) Produce(ctx context.Context, topic, key string, value []byte, meta []messagebroker.MetaItem) error {
+func (c *kafkaClient) Produce(ctx context.Context, topic string, message messagebroker.Message) error {
 	span, _ := opentracing.StartSpanFromContext(ctx, "KafkaClient_Produce")
 	defer span.Finish()
 
-	headers := make([]sarama.RecordHeader, 0, len(meta))
-	for i := 0; i < len(meta); i++ {
+	headers := make([]sarama.RecordHeader, 0, len(message.Meta))
+	for i := 0; i < len(message.Meta); i++ {
+		value, err := json.Marshal(message.Meta[i].Value)
+		if err != nil {
+			return err
+		}
+
 		headers = append(headers, sarama.RecordHeader{
-			Key:   []byte(meta[i].Key),
-			Value: meta[i].Value,
+			Key:   []byte(message.Meta[i].Key),
+			Value: value,
 		})
 	}
 
+	logger.Debug(fmt.Sprintf("%v", message.Value))
+
 	msg := &sarama.ProducerMessage{
 		Topic:   topic,
-		Key:     sarama.StringEncoder(key),
-		Value:   sarama.ByteEncoder(value),
+		Key:     sarama.StringEncoder(message.Key),
+		Value:   sarama.StringEncoder(message.Value),
 		Headers: headers,
 	}
 
@@ -53,6 +67,17 @@ func (c *kafkaClient) Produce(ctx context.Context, topic, key string, value []by
 		return err
 	}
 
+	return nil
+}
+
+func (c *kafkaClient) Consume(ctx context.Context, topic string, out chan<- messagebroker.Message) error {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "KafkaClient_Consume")
+	defer span.Finish()
+
+	err := c.consumerGroup.Consume(ctx, []string{topic}, &ConsumeHandler{out: out})
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -73,4 +98,24 @@ func newProducer(conf config.MessageBrokerConf) (sarama.SyncProducer, error) {
 	}
 
 	return producer, nil
+}
+
+func newConsumerGroup(conf config.MessageBrokerConf) (sarama.ConsumerGroup, error) {
+	ver, err := sarama.ParseKafkaVersion(conf.Version)
+	if err != nil {
+		return nil, err
+	}
+
+	config := sarama.NewConfig()
+	config.Version = ver
+	config.Consumer.Offsets.Initial = sarama.OffsetOldest
+	config.Consumer.Group.Rebalance.GroupStrategies = []sarama.BalanceStrategy{sarama.BalanceStrategyRange}
+
+	// Create consumer group
+	consumerGroup, err := sarama.NewConsumerGroup([]string{conf.Addr}, "report-request-receiver", config)
+	if err != nil {
+		return nil, err
+	}
+
+	return consumerGroup, nil
 }
