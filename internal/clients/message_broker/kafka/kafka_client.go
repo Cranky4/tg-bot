@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Shopify/sarama"
+	"github.com/opentracing/opentracing-go"
 	messagebroker "gitlab.ozon.dev/cranky4/tg-bot/internal/clients/message_broker"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
@@ -24,6 +25,9 @@ func NewKafkaCient(conf config.MessageBrokerConf) (messagebroker.MessageBroker, 
 }
 
 func (c *kafkaClient) Produce(ctx context.Context, topic, key string, value []byte, meta []messagebroker.MetaItem) error {
+	span, _ := opentracing.StartSpanFromContext(ctx, "KafkaClient_Produce")
+	defer span.Finish()
+
 	headers := make([]sarama.RecordHeader, 0, len(meta))
 	for i := 0; i < len(meta); i++ {
 		headers = append(headers, sarama.RecordHeader{

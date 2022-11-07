@@ -51,6 +51,9 @@ generate: install-mockgen
 	${MOCKGEN} \
 		-source=internal/service/cache/cache.go \
 		-destination=internal/service/cache/mocks/cache_mocks.go
+	${MOCKGEN} \
+		-source=internal/clients/message_broker/client.go \
+		-destination=internal/clients/message_broker/mocks/client_mocks.go
 
 lint: install-lint
 	${LINTBIN} run
