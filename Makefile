@@ -122,3 +122,10 @@ integration-tests:
 install-ginkgo:
 	go get github.com/onsi/ginkgo/v2/ginkgo
 	go get github.com/onsi/gomega/...
+
+install-protobuf:
+	go install google.golang.org/protobuf/cmd/protoc-gen-go
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
+
+generate-grpc: 
+	protoc ./api/Reporter.proto --go_opt=paths=source_relative --go_out=. --go-grpc_out=. --go-grpc_opt=paths=source_relative

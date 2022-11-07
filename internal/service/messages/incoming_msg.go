@@ -2,6 +2,7 @@ package servicemessages
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/uber/jaeger-client-go"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_processor"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	reportrequester "gitlab.ozon.dev/cranky4/tg-bot/internal/service/report_requester"
 )
@@ -140,4 +142,24 @@ func (m *Model) IncomingMessage(ctx context.Context, msg Message) error {
 	}
 
 	return m.tgClient.SendMessage(response, msg.UserID, btns)
+}
+
+func (m *Model) SendReport(report *expense_reporter.ExpenseReport) error {
+	var reporter strings.Builder
+	reporter.WriteString(
+		fmt.Sprintf("%s бюджет:\n", report.Period.String()),
+	)
+	defer reporter.Reset()
+
+	if report.IsEmpty {
+		reporter.WriteString("пусто\n")
+	}
+
+	for category, amount := range report.Rows {
+		if _, err := reporter.WriteString(fmt.Sprintf("%s - %.02f %s\n", category, amount, m.currency)); err != nil {
+			return err
+		}
+	}
+
+	return m.tgClient.SendMessage(reporter.String(), report.UserID, nil)
 }

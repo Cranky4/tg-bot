@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os/signal"
 	"syscall"
@@ -58,7 +59,7 @@ func main() {
 	requestsTotalCounter := initTotalCounter()
 	responseTimeSummary := initResponseTime()
 	go func() {
-		err = startHTTPServer(config.Metrics.URL, config.Metrics.Port)
+		err = startMetricsHTTPServer(config.Metrics.URL, config.Metrics.Port)
 		if err != nil {
 			logger.Error("Error while tracer flush", servicelogger.LogDataItem{Key: "error", Value: err.Error()})
 		}
@@ -81,7 +82,7 @@ func main() {
 	// Брокер сообщений
 	broker, err := initMessageBroker(config.MessageBroker)
 	if err != nil {
-		log.Fatal("broker message init failed:", err)
+		logger.Fatal(fmt.Sprintf("broker message init failed: %s", err))
 	}
 
 	messagesService := servicemessages.New(
@@ -92,6 +93,13 @@ func main() {
 		requestsTotalCounter,
 		responseTimeSummary,
 	)
+
+	// GRPC
+	go func() {
+		if err := initGRPSServer(config.GRPC, messagesService); err != nil {
+			logger.Fatal(fmt.Sprintf("GRPC server err %s", err))
+		}
+	}()
 
 	tgClient.ListenUpdates(ctx, messagesService)
 

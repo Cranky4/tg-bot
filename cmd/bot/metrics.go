@@ -41,7 +41,7 @@ func initResponseTime() *prometheus.SummaryVec {
 	)
 }
 
-func startHTTPServer(url string, port int) error {
+func startMetricsHTTPServer(url string, port int) error {
 	http.Handle(url, promhttp.Handler())
 
 	server := &http.Server{

@@ -2,7 +2,7 @@ package reportrequester
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"testing"
 
 	"github.com/golang/mock/gomock"
@@ -20,20 +20,26 @@ func TestSendRequestReport(t *testing.T) {
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
 
 	client := clientmocks.NewMockMessageBroker(ctrl)
+
+	value, err := json.Marshal(ReportRequest{
+		Period:   model.Week,
+		UserID:   123,
+		Currency: "RUB",
+	})
+
+	assert.Nil(t, err)
+
 	client.EXPECT().Produce(
 		wrapedCtx,
 		"queue",
 		messagebroker.Message{
 			Key:   "123",
-			Value: []byte(fmt.Sprintf("%d", model.Week)),
-			Meta: []messagebroker.MetaItem{
-				{Key: "userId", Value: []byte(fmt.Sprintf("%d", 123))},
-				{Key: "currency", Value: []byte("RUB")},
-			},
+			Value: value,
+			Meta:  nil,
 		})
 
 	requester := NewReportRequester(client, "queue")
 
-	err := requester.SendRequestReport(ctx, 123, model.Week, "RUB")
+	err = requester.SendRequestReport(ctx, 123, model.Week, "RUB")
 	assert.Nil(t, err)
 }

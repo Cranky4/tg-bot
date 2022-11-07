@@ -281,6 +281,9 @@ func (r *repository) findFreeLimit(ctx context.Context, categoryID string, userI
 
 	var freeLimit sql.NullInt64
 	if err := row.Scan(&freeLimit); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, false, nil
+		}
 		return 0, true, errors.Wrap(err, freeLimitErrMsg)
 	}
 

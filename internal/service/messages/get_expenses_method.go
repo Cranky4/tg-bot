@@ -38,27 +38,4 @@ func (m *Model) getExpenses(ctx context.Context, msg Message) (string, error) {
 	}
 
 	return reportRequestedMsg, nil
-
-	// report, err := m.reportRequester.GetReport(ctx, expPeriod, m.currency, msg.UserID)
-	// if err != nil {
-	// 	return "", err
-	// }
-
-	// var reporter strings.Builder
-	// reporter.WriteString(
-	// 	fmt.Sprintf("%s бюджет:\n", &expPeriod),
-	// )
-	// defer reporter.Reset()
-
-	// if report.IsEmpty {
-	// 	reporter.WriteString("пусто\n")
-	// }
-
-	// for category, amount := range report.Rows {
-	// 	if _, err := reporter.WriteString(fmt.Sprintf("%s - %.02f %s\n", category, amount, m.currency)); err != nil {
-	// 		return "", err
-	// 	}
-	// }
-
-	// return reporter.String(), nil
 }

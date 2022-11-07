@@ -48,7 +48,12 @@ func main() {
 	}
 	expenseReporter := expense_reporter.NewReporter(repo, converter, cache)
 
-	reportReceiver := reportrequestreceiver.NewReportRequestReceiver(broker, config.MessageBroker.Queue, expenseReporter)
+	reportReceiver := reportrequestreceiver.NewReportRequestReceiver(
+		broker,
+		config.MessageBroker.Queue,
+		expenseReporter,
+		config.GRPC,
+	)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()

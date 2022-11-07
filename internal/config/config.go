@@ -20,6 +20,7 @@ type Config struct {
 	Cache         CacheConf         `yaml:"cache"`
 	Redis         RedisConf         `yaml:"redis"`
 	MessageBroker MessageBrokerConf `yaml:"message_broker"`
+	GRPC          GRPCConf          `yaml:"grpc"`
 }
 
 type TokenGetter interface {
@@ -60,6 +61,10 @@ type MessageBrokerConf struct {
 	Addr    string `yaml:"addr"`
 	Queue   string `yaml:"queue"`
 	Version string `yaml:"version"`
+}
+
+type GRPCConf struct {
+	Port int `yaml:"port"`
 }
 
 func New() (*Config, error) {

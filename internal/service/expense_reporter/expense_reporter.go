@@ -25,6 +25,8 @@ type ExpenseReporter interface {
 type ExpenseReport struct {
 	IsEmpty bool
 	Rows    map[string]float64
+	UserID  int64
+	Period  model.ExpensePeriod
 }
 
 func (r ExpenseReport) MarshalBinary() (data []byte, err error) {
@@ -65,7 +67,9 @@ func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, cu
 
 	result := make(map[string]int64) // [категория]сумма
 	report = ExpenseReport{
-		Rows: make(map[string]float64),
+		Rows:   make(map[string]float64),
+		UserID: userId,
+		Period: period,
 	}
 
 	for _, e := range expenses {

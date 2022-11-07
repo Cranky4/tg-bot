@@ -49,6 +49,8 @@ func TestGetReportWithSuccess(t *testing.T) {
 	cache.EXPECT().Set(wrapedCtx, cacheKey, ExpenseReport{
 		IsEmpty: false,
 		Rows:    map[string]float64{"Категория": 125},
+		UserID:  userId,
+		Period:  period,
 	}, 24*time.Hour)
 
 	reporter := NewReporter(repo, testConverter, cache)
@@ -83,6 +85,8 @@ func TestGetReportWithEmptyReport(t *testing.T) {
 	cache.EXPECT().Set(wrapedCtx, cacheKey, ExpenseReport{
 		IsEmpty: true,
 		Rows:    map[string]float64{},
+		UserID:  userId,
+		Period:  period,
 	}, 24*time.Hour)
 
 	reporter := NewReporter(repo, testConverter, cache)
