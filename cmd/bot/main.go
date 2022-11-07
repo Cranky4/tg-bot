@@ -13,10 +13,10 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_processor"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	servicelogger "gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
+	reportrequester "gitlab.ozon.dev/cranky4/tg-bot/internal/service/report_requester"
 )
 
 func main() {
@@ -78,11 +78,17 @@ func main() {
 		log.Fatal("cache init failed:", err)
 	}
 
+	// Брокер сообщений
+	broker, err := initMessageBroker(config.MessageBroker)
+	if err != nil {
+		log.Fatal("broker message init failed:", err)
+	}
+
 	messagesService := servicemessages.New(
 		tgClient,
 		converter.GetAvailableCurrencies(),
 		expense_processor.NewProcessor(repo, converter, cache),
-		expense_reporter.NewReporter(repo, converter, cache),
+		reportrequester.NewReportRequester(broker, config.MessageBroker.Queue),
 		requestsTotalCounter,
 		responseTimeSummary,
 	)

@@ -2,12 +2,14 @@ package servicemessages
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"github.com/opentracing/opentracing-go"
 	"github.com/pkg/errors"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
+)
+
+const (
+	reportRequestedMsg = "Запрос на формирование отчета отправлен"
 )
 
 func (m *Model) getExpenses(ctx context.Context, msg Message) (string, error) {
@@ -30,26 +32,33 @@ func (m *Model) getExpenses(ctx context.Context, msg Message) (string, error) {
 		expPeriod = model.Week
 	}
 
-	report, err := m.expenseReporter.GetReport(ctx, expPeriod, m.currency, msg.UserID)
+	err := m.reportRequester.SendRequestReport(ctx, msg.UserID, expPeriod, m.currency)
 	if err != nil {
 		return "", err
 	}
 
-	var reporter strings.Builder
-	reporter.WriteString(
-		fmt.Sprintf("%s бюджет:\n", &expPeriod),
-	)
-	defer reporter.Reset()
+	return reportRequestedMsg, nil
 
-	if report.IsEmpty {
-		reporter.WriteString("пусто\n")
-	}
+	// report, err := m.reportRequester.GetReport(ctx, expPeriod, m.currency, msg.UserID)
+	// if err != nil {
+	// 	return "", err
+	// }
 
-	for category, amount := range report.Rows {
-		if _, err := reporter.WriteString(fmt.Sprintf("%s - %.02f %s\n", category, amount, m.currency)); err != nil {
-			return "", err
-		}
-	}
+	// var reporter strings.Builder
+	// reporter.WriteString(
+	// 	fmt.Sprintf("%s бюджет:\n", &expPeriod),
+	// )
+	// defer reporter.Reset()
 
-	return reporter.String(), nil
+	// if report.IsEmpty {
+	// 	reporter.WriteString("пусто\n")
+	// }
+
+	// for category, amount := range report.Rows {
+	// 	if _, err := reporter.WriteString(fmt.Sprintf("%s - %.02f %s\n", category, amount, m.currency)); err != nil {
+	// 		return "", err
+	// 	}
+	// }
+
+	// return reporter.String(), nil
 }

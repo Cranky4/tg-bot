@@ -21,10 +21,45 @@ services:
       - ALLOW_EMPTY_PASSWORD=no
       - REDIS_PASSWORD=secret
     volumes:
-      # - ../build/redis:/opt/bitnami/redis/mounted-etc:ro
       - tg_bot_redis:/bitnami/redis
     ports:
       - "6379:6379"
+  
+  kafka:
+    container_name: kafka
+    image: wurstmeister/kafka
+    hostname: kafka
+    ports:
+      - "9092:9092" # inside
+      - "9093:9093" # outside
+    links:
+      - zookeeper
+    environment:
+      KAFKA_ADVERTISED_LISTENERS: INSIDE://:9092,OUTSIDE://127.0.0.1:9093
+      KAFKA_LISTENERS: INSIDE://:9092,OUTSIDE://:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INSIDE:PLAINTEXT,OUTSIDE:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INSIDE
+      KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_CREATE_TOPICS: "tg-bot-reports:2:1"
+    depends_on:
+      - zookeeper
+
+  zookeeper:
+    container_name: zookeeper
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+
+  kafka-ui:
+    container_name: kafka_ui
+    image: 'provectuslabs/kafka-ui:latest'
+    ports:
+      - '${KAFKA_UI_PORT:-22181}:8080'
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      - kafka
 
   filed:
     container_name: file_d

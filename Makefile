@@ -43,6 +43,9 @@ generate: install-mockgen
 		-source=internal/service/expense_processor/expense_processor.go \
 		-destination=internal/service/expense_processor/mocks/expense_processor_mocks.go
 	${MOCKGEN} \
+		-source=internal/service/report_requester/report_requester.go \
+		-destination=internal/service/report_requester/mocks/report_requester_mocks.go
+	${MOCKGEN} \
 		-source=internal/service/expense_reporter/expense_reporter.go \
 		-destination=internal/service/expense_reporter/mocks/expense_reporter_mocks.go
 	${MOCKGEN} \

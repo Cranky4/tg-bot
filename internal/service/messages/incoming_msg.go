@@ -10,8 +10,8 @@ import (
 	"github.com/uber/jaeger-client-go"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_processor"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
+	reportrequester "gitlab.ozon.dev/cranky4/tg-bot/internal/service/report_requester"
 )
 
 const (
@@ -53,7 +53,7 @@ type Model struct {
 	tgClient             MessageSender
 	currencies           map[string]struct{}
 	expenseProcessor     expense_processor.ExpenseProcessor
-	expenseReporter      expense_reporter.ExpenseReporter
+	reportRequester      reportrequester.ReportRequester
 	currency             string
 	totalRequestsCounter *prometheus.CounterVec
 	responseTimeSummary  *prometheus.SummaryVec
@@ -63,7 +63,7 @@ func New(
 	tgClient MessageSender,
 	currencies map[string]struct{},
 	expenseProcessor expense_processor.ExpenseProcessor,
-	expenseReporter expense_reporter.ExpenseReporter,
+	reportRequester reportrequester.ReportRequester,
 	totalRequestsCounter *prometheus.CounterVec,
 	responseTimeSummary *prometheus.SummaryVec,
 ) *Model {
@@ -72,7 +72,7 @@ func New(
 		currencies:           currencies,
 		currency:             serviceconverter.RUB,
 		expenseProcessor:     expenseProcessor,
-		expenseReporter:      expenseReporter,
+		reportRequester:      reportRequester,
 		totalRequestsCounter: totalRequestsCounter,
 		responseTimeSummary:  responseTimeSummary,
 	}
