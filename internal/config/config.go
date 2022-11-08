@@ -21,6 +21,7 @@ type Config struct {
 	Redis         RedisConf         `yaml:"redis"`
 	MessageBroker MessageBrokerConf `yaml:"message_broker"`
 	GRPC          GRPCConf          `yaml:"grpc"`
+	HTTP          HTTPConf          `yaml:"http"`
 }
 
 type TokenGetter interface {
@@ -64,6 +65,9 @@ type MessageBrokerConf struct {
 }
 
 type GRPCConf struct {
+	Port int `yaml:"port"`
+}
+type HTTPConf struct {
 	Port int `yaml:"port"`
 }
 

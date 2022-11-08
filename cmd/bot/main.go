@@ -95,9 +95,9 @@ func main() {
 		responseTimeSummary,
 	)
 
-	// GRPC
+	// GRPC + Gateway
 	go func() {
-		if err := initGRPСServer(config.GRPC, messagesService); err != nil {
+		if err := initGRPСServer(config.GRPC, config.HTTP, messagesService); err != nil {
 			logger.Fatal(fmt.Sprintf("GRPC server err %s", err))
 		}
 	}()

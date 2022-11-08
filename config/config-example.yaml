@@ -30,3 +30,6 @@ message_broker:
 
 grpc:
   port: 50051
+
+http:
+  port: 50052
