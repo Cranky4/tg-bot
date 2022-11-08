@@ -32,7 +32,7 @@ func (s *server) SendReport(ctx context.Context, request *api.SendReportRequest)
 	return &emptypb.Empty{}, nil
 }
 
-func initGRPSServer(conf config.GRPCConf, messagesService *servicemessages.Model) error {
+func initGRPСServer(conf config.GRPCConf, messagesService *servicemessages.Model) error {
 	port := fmt.Sprintf(":%d", conf.Port)
 
 	listener, err := net.Listen("tcp", port)

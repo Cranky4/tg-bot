@@ -161,5 +161,5 @@ func (m *Model) SendReport(report *expense_reporter.ExpenseReport) error {
 		}
 	}
 
-	return m.tgClient.SendMessage(reporter.String(), report.UserID, nil)
+	return m.tgClient.SendMessage(reporter.String(), report.UserID, mainMenu)
 }

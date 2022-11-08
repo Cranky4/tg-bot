@@ -76,7 +76,7 @@ func main() {
 	// Кэш
 	cache, err := initCache(*config)
 	if err != nil {
-		log.Fatal("cache init failed:", err)
+		logger.Fatal(fmt.Sprintf("cache init failed: %s", err))
 	}
 
 	// Брокер сообщений
@@ -96,7 +96,7 @@ func main() {
 
 	// GRPC
 	go func() {
-		if err := initGRPSServer(config.GRPC, messagesService); err != nil {
+		if err := initGRPСServer(config.GRPC, messagesService); err != nil {
 			logger.Fatal(fmt.Sprintf("GRPC server err %s", err))
 		}
 	}()

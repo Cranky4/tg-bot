@@ -24,9 +24,18 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	reportrequestreceiver "gitlab.ozon.dev/cranky4/tg-bot/internal/service/report_request_receiver"
+	reportsender "gitlab.ozon.dev/cranky4/tg-bot/internal/service/report_sender"
 )
 
-const undefinedMode = "неизвестный режим кеширования: %s"
+const (
+	undefinedModeErrMsg                = "неизвестный режим кеширования: %s"
+	undefinedRepoModeErrMsg            = "неизвестный режим репозитория %s"
+	cannotConnectToDBErrMsg            = "ошибка подключения в базе данных %s"
+	undefineMessageBrokerAdapterErrMsg = "неизвестный адаптер брокера сообщений"
+
+	startListeningInfoMsg = "слушатель запросов на формирование отчетов запущен"
+	stopListeningInfoMsg  = "слушатель запросов на формирование отчетов остановлен"
+)
 
 func main() {
 	config, err := config.New()
@@ -47,24 +56,25 @@ func main() {
 		log.Fatal(err.Error())
 	}
 	expenseReporter := expense_reporter.NewReporter(repo, converter, cache)
+	reportSender := reportsender.NewReportSender(config.GRPC)
 
 	reportReceiver := reportrequestreceiver.NewReportRequestReceiver(
 		broker,
 		config.MessageBroker.Queue,
 		expenseReporter,
-		config.GRPC,
+		reportSender,
 	)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
 	defer cancel()
 
-	logger.Info("Start receiving reports requests")
+	logger.Info(startListeningInfoMsg)
 
 	if err := reportReceiver.Start(ctx); err != nil {
 		logger.Error(err.Error())
 	}
 
-	logger.Info("Stop receiving reports requests")
+	logger.Info(stopListeningInfoMsg)
 }
 
 func initCache(conf config.Config) (cache.Cache, error) {
@@ -74,7 +84,7 @@ func initCache(conf config.Config) (cache.Cache, error) {
 	case cache.RedisMode:
 		return redis_cache.NewRedisCache(conf.Redis), nil
 	default:
-		return nil, fmt.Errorf(undefinedMode, conf.Cache.Mode)
+		return nil, fmt.Errorf(undefinedModeErrMsg, conf.Cache.Mode)
 	}
 }
 
@@ -84,7 +94,7 @@ func initMessageBroker(conf config.MessageBrokerConf) (messagebroker.MessageBrok
 		return kafka.NewKafkaCient(conf)
 	}
 
-	return nil, errors.New("Невалидный адаптер брокера сообщений")
+	return nil, errors.New(undefineMessageBrokerAdapterErrMsg)
 }
 
 func initRepo(conf config.Config) repo.ExpensesRepository {
@@ -97,10 +107,10 @@ func initRepo(conf config.Config) repo.ExpensesRepository {
 	case "sql":
 		repo, err = sqlrepo.NewRepository(conf.Database)
 		if err != nil {
-			log.Fatalf("cannot connect to db %s", err.Error())
+			logger.Fatal(fmt.Sprintf(cannotConnectToDBErrMsg, err))
 		}
 	default:
-		log.Fatalf("unknown repo mode %s", conf.Storage)
+		logger.Fatal(fmt.Sprintf(undefinedRepoModeErrMsg, conf.Storage))
 	}
 
 	return repo
