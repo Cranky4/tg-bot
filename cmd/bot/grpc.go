@@ -86,7 +86,8 @@ func initGRPСServer(grpcConf config.GRPCConf, httpConf config.HTTPConf, message
 	go runHttp()
 
 	logger.Info("HTTP server listening " + httpPort)
-	if err = http.Serve(httpListener, mux); err != nil {
+	// G114: Use of net/http serve function that has no support for setting timeouts
+	if err = http.Serve(httpListener, mux); err != nil { //nolint:gosec
 		return err
 	}
 
