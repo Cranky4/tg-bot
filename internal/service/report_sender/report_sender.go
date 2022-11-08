@@ -43,7 +43,7 @@ func (s *reportSender) Send(ctx context.Context, report *expense_reporter.Expens
 
 	c := api.NewReporterClient(conn)
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	_, err = c.SendReport(ctx, &api.SendReportRequest{

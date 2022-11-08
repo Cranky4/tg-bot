@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus"
 	messagebroker "gitlab.ozon.dev/cranky4/tg-bot/internal/clients/message_broker"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
@@ -18,10 +19,11 @@ type ReportRequestReceiver interface {
 }
 
 type reportRequestReceiver struct {
-	broker          messagebroker.MessageBroker
-	queue           string
-	expenseReporter expense_reporter.ExpenseReporter
-	reportSender    reportsender.ReportSender
+	broker                      messagebroker.MessageBroker
+	queue                       string
+	expenseReporter             expense_reporter.ExpenseReporter
+	reportSender                reportsender.ReportSender
+	totalMessageConsumedCounter *prometheus.CounterVec
 }
 
 func NewReportRequestReceiver(
@@ -29,12 +31,14 @@ func NewReportRequestReceiver(
 	queue string,
 	expenseReporter expense_reporter.ExpenseReporter,
 	reportSender reportsender.ReportSender,
+	totalMessageConsumedCounter *prometheus.CounterVec,
 ) ReportRequestReceiver {
 	return &reportRequestReceiver{
-		broker:          broker,
-		queue:           queue,
-		expenseReporter: expenseReporter,
-		reportSender:    reportSender,
+		broker:                      broker,
+		queue:                       queue,
+		expenseReporter:             expenseReporter,
+		reportSender:                reportSender,
+		totalMessageConsumedCounter: totalMessageConsumedCounter,
 	}
 }
 
@@ -47,10 +51,15 @@ func (r *reportRequestReceiver) Start(ctx context.Context) error {
 
 	go func() {
 		err := r.broker.Consume(ctx, r.queue, out)
+
 		if err != nil {
-			logger.Error("[REPORT_REQUEST_RECEIVER]" + err.Error())
+			logger.Error(err.Error(), logger.LogDataItem{
+				Key: "service", Value: "REPORT_REQUEST_RECEIVER",
+			})
 		} else {
-			logger.Info("[REPORT_REQUEST_RECEIVER] done consuming")
+			logger.Info("done consuming", logger.LogDataItem{
+				Key: "service", Value: "REPORT_REQUEST_RECEIVER",
+			})
 		}
 	}()
 
@@ -60,6 +69,10 @@ func (r *reportRequestReceiver) Start(ctx context.Context) error {
 			return nil
 		case msg := <-out:
 			reportRequest := &reportrequester.ReportRequest{}
+
+			if r.totalMessageConsumedCounter != nil {
+				r.totalMessageConsumedCounter.WithLabelValues(r.queue).Inc()
+			}
 
 			logger.Debug(fmt.Sprintf("получено сообщение %v", msg))
 

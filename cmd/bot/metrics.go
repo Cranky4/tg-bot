@@ -25,6 +25,30 @@ func initTotalCounter() *prometheus.CounterVec {
 	)
 }
 
+func initGRPCTotalCounter() *prometheus.CounterVec {
+	return promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "tg_bot",
+			Subsystem: "tg_client",
+			Help:      "Total count of GRPC requests",
+			Name:      "grpc_requests_total",
+		},
+		labelNames,
+	)
+}
+
+func initMessageBrokerMessagesProducesTotalCounter() *prometheus.CounterVec {
+	return promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "tg_bot",
+			Subsystem: "tg_client",
+			Help:      "Total count of Message Broker's messages produced",
+			Name:      "message_broker_messages_produced_total",
+		},
+		labelNames,
+	)
+}
+
 func initResponseTime() *prometheus.SummaryVec {
 	return promauto.NewSummaryVec(
 		prometheus.SummaryOpts{

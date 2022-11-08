@@ -11,8 +11,11 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/tap"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+var GRPCRequestsCountMetric = initGRPCTotalCounter()
 
 type server struct {
 	api.UnimplementedReporterServer
@@ -40,7 +43,10 @@ func initGRPСServer(conf config.GRPCConf, messagesService *servicemessages.Mode
 		return err
 	}
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(
+		grpc.InTapHandle(countRequestsInterceptor),
+		grpc.UnaryInterceptor(logInterceptor),
+	)
 	api.RegisterReporterServer(s, &server{messagesService: messagesService})
 
 	logger.Info("GRPC server listening " + port)
@@ -50,4 +56,27 @@ func initGRPСServer(conf config.GRPCConf, messagesService *servicemessages.Mode
 	}
 
 	return nil
+}
+
+func logInterceptor(
+	ctx context.Context,
+	req any,
+	info *grpc.UnaryServerInfo,
+	handler grpc.UnaryHandler,
+) (resp any, err error) {
+	logger.Info(
+		fmt.Sprintf("получен запрос %s, данные %v", info.FullMethod, req),
+		logger.LogDataItem{Key: "service", Value: "GRPC Server"},
+	)
+
+	m, err := handler(ctx, req)
+	return m, err
+}
+
+func countRequestsInterceptor(ctx context.Context, info *tap.Info) (context.Context, error) {
+	defer func(command string) {
+		GRPCRequestsCountMetric.WithLabelValues(command).Inc()
+	}(info.FullMethodName)
+
+	return ctx, nil
 }

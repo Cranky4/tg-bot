@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus"
 	messagebroker "gitlab.ozon.dev/cranky4/tg-bot/internal/clients/message_broker"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
 )
@@ -21,14 +22,16 @@ type ReportRequester interface {
 }
 
 type reportRequester struct {
-	broker    messagebroker.MessageBroker
-	queueName string
+	broker                      messagebroker.MessageBroker
+	queueName                   string
+	totalMessageProducedCounter *prometheus.CounterVec
 }
 
-func NewReportRequester(broker messagebroker.MessageBroker, queueName string) ReportRequester {
+func NewReportRequester(broker messagebroker.MessageBroker, queueName string, totalMessageProducedCounter *prometheus.CounterVec) ReportRequester {
 	return &reportRequester{
-		broker:    broker,
-		queueName: queueName,
+		broker:                      broker,
+		queueName:                   queueName,
+		totalMessageProducedCounter: totalMessageProducedCounter,
 	}
 }
 
@@ -44,7 +47,7 @@ func (r *reportRequester) SendRequestReport(ctx context.Context, userID int64, p
 		return err
 	}
 
-	return r.broker.Produce(
+	err = r.broker.Produce(
 		ctx,
 		r.queueName,
 		messagebroker.Message{
@@ -52,4 +55,14 @@ func (r *reportRequester) SendRequestReport(ctx context.Context, userID int64, p
 			Value: value,
 		},
 	)
+
+	if err != nil {
+		return err
+	}
+
+	if r.totalMessageProducedCounter != nil {
+		r.totalMessageProducedCounter.WithLabelValues(r.queueName).Inc()
+	}
+
+	return nil
 }

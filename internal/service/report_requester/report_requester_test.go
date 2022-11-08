@@ -38,7 +38,7 @@ func TestSendRequestReport(t *testing.T) {
 			Meta:  nil,
 		})
 
-	requester := NewReportRequester(client, "queue")
+	requester := NewReportRequester(client, "queue", nil)
 
 	err = requester.SendRequestReport(ctx, 123, model.Week, "RUB")
 	assert.Nil(t, err)

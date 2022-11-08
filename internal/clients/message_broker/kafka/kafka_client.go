@@ -60,7 +60,8 @@ func (c *kafkaClient) Produce(ctx context.Context, topic string, message message
 	partition, offset, err := c.producer.SendMessage(msg)
 
 	logger.Debug(
-		fmt.Sprintf("[KAFKA] добавлено сообщение %v (partiiton %d, offset %d)", msg, partition, offset),
+		fmt.Sprintf("добавлено сообщение %v (partiiton %d, offset %d)", msg, partition, offset),
+		logger.LogDataItem{Key: "service", Value: "Kafka"},
 	)
 
 	if err != nil {

@@ -11,12 +11,12 @@ type ConsumeHandler struct {
 }
 
 func (h *ConsumeHandler) Setup(sarama.ConsumerGroupSession) error {
-	logger.Debug("[KAFKA] consumer - setup")
+	logger.Debug("consumer - setup", logger.LogDataItem{Key: "service", Value: "Kafka"})
 	return nil
 }
 
 func (h *ConsumeHandler) Cleanup(sarama.ConsumerGroupSession) error {
-	logger.Debug("[KAFKA] consumer - cleanup")
+	logger.Debug("consumer - cleanup", logger.LogDataItem{Key: "service", Value: "Kafka"})
 	return nil
 }
 

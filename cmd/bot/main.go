@@ -58,6 +58,7 @@ func main() {
 	// Метрики
 	requestsTotalCounter := initTotalCounter()
 	responseTimeSummary := initResponseTime()
+	brokerMessageProduced := initMessageBrokerMessagesProducesTotalCounter()
 	go func() {
 		err = startMetricsHTTPServer(config.Metrics.URL, config.Metrics.Port)
 		if err != nil {
@@ -89,7 +90,7 @@ func main() {
 		tgClient,
 		converter.GetAvailableCurrencies(),
 		expense_processor.NewProcessor(repo, converter, cache),
-		reportrequester.NewReportRequester(broker, config.MessageBroker.Queue),
+		reportrequester.NewReportRequester(broker, config.MessageBroker.Queue, brokerMessageProduced),
 		requestsTotalCounter,
 		responseTimeSummary,
 	)
