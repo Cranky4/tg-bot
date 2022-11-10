@@ -6,7 +6,9 @@ import (
 	"fmt"
 
 	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/uber/jaeger-client-go"
 	messagebroker "gitlab.ozon.dev/cranky4/tg-bot/internal/clients/message_broker"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
@@ -43,9 +45,6 @@ func NewReportRequestReceiver(
 }
 
 func (r *reportRequestReceiver) Start(ctx context.Context) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "ReportRequestReceiver_Start")
-	defer span.Finish()
-
 	out := make(chan messagebroker.Message)
 	defer close(out)
 
@@ -72,6 +71,38 @@ func (r *reportRequestReceiver) Start(ctx context.Context) error {
 
 			if r.totalMessageConsumedCounter != nil {
 				r.totalMessageConsumedCounter.WithLabelValues(r.queue).Inc()
+			}
+
+			span, ctx := opentracing.StartSpanFromContext(ctx, "ReportRequestReceiver")
+			for _, v := range msg.Meta {
+				if v.Key == "trace" {
+					var m map[string]string
+					err := json.Unmarshal(v.Value, &m)
+					if err != nil {
+						return err
+					}
+
+					incomingTrace, err := span.Tracer().Extract(
+						opentracing.TextMap,
+						opentracing.TextMapCarrier(m),
+					)
+					if err != nil {
+						return err
+					}
+
+					span, ctx = opentracing.StartSpanFromContext(ctx, "ReportRequestReceiver_Receive", ext.RPCServerOption(incomingTrace))
+
+					if err != nil {
+						return err
+					}
+					break
+				}
+			}
+			defer span.Finish()
+
+			// Меняет ид трейса для логов
+			if spanCtx, ok := span.Context().(jaeger.SpanContext); ok {
+				logger.SetTraceId(spanCtx.TraceID().String())
 			}
 
 			logger.Debug(fmt.Sprintf("получено сообщение %v", msg))

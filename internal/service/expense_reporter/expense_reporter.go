@@ -96,7 +96,7 @@ func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, cu
 }
 
 func (r *reporter) getCached(ctx context.Context, userId int64, period model.ExpensePeriod) (ExpenseReport, bool, error) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "getCached")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "getCached")
 	defer span.Finish()
 
 	value, ok, err := r.cache.Get(ctx, getCacheKey(userId, period))

@@ -27,7 +27,7 @@ func CountRequestsInterceptor(ctx context.Context, info *tap.Info) (context.Cont
 	return ctx, nil
 }
 
-func MetricInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
+func TracingInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (resp any, err error) {
 	span, _ := opentracing.StartSpanFromContext(ctx, "GRPC_"+info.FullMethod)
 	defer span.Finish()
 

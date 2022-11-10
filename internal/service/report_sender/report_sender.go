@@ -2,6 +2,7 @@ package reportsender
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	api "gitlab.ozon.dev/cranky4/tg-bot/pkg/reporter_v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 type ReportSender interface {
@@ -45,6 +47,22 @@ func (s *reportSender) Send(ctx context.Context, report *expense_reporter.Expens
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+
+	traceContext := make(map[string]string)
+	err = opentracing.GlobalTracer().Inject(
+		span.Context(),
+		opentracing.TextMap,
+		opentracing.TextMapCarrier(traceContext),
+	)
+	if err != nil {
+		return err
+	}
+	encodedTraceContext, err := json.Marshal(traceContext)
+	if err != nil {
+		return err
+	}
+
+	ctx = metadata.AppendToOutgoingContext(ctx, "trace", string(encodedTraceContext))
 
 	_, err = c.SendReport(ctx, &api.SendReportRequest{
 		Rows:   report.Rows,

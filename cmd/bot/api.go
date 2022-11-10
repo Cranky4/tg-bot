@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/api"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
@@ -15,6 +18,7 @@ import (
 	pkg_api "gitlab.ozon.dev/cranky4/tg-bot/pkg/reporter_v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -24,12 +28,44 @@ type server struct {
 }
 
 func (s *server) SendReport(ctx context.Context, request *pkg_api.SendReportRequest) (*emptypb.Empty, error) {
+	span, ctx := opentracing.StartSpanFromContext(ctx, "GRPCServer_GetReport")
+
+	md, ok := metadata.FromIncomingContext(ctx)
+	if ok {
+		logger.Debug(fmt.Sprintf("%v", md))
+		for k, v := range md {
+			if k == "trace" {
+				var m map[string]string
+				err := json.Unmarshal([]byte(v[0]), &m)
+				if err != nil {
+					return nil, err
+				}
+
+				incomingTrace, err := opentracing.GlobalTracer().Extract(
+					opentracing.TextMap,
+					opentracing.TextMapCarrier(m),
+				)
+				if err != nil {
+					return nil, err
+				}
+
+				span, ctx = opentracing.StartSpanFromContext(ctx, "GRPCServer_GetReport", ext.RPCServerOption(incomingTrace))
+
+				if err != nil {
+					return nil, err
+				}
+				break
+			}
+		}
+	}
+	defer span.Finish()
+
 	report := expense_reporter.ExpenseReport{
 		Rows:   request.GetRows(),
 		UserID: request.GetUserId(),
 	}
 
-	err := s.messagesService.SendReport(&report)
+	err := s.messagesService.SendReport(ctx, &report)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +83,7 @@ func initGRPСServer(grpcConf config.GRPCConf, messagesService *servicemessages.
 
 	s := grpc.NewServer(
 		grpc.InTapHandle(api.CountRequestsInterceptor),
-		grpc.ChainUnaryInterceptor(api.LogInterceptor, api.MetricInterceptor),
+		grpc.ChainUnaryInterceptor(api.LogInterceptor, api.TracingInterceptor),
 	)
 	pkg_api.RegisterReporterV1Server(s, &server{messagesService: messagesService})
 

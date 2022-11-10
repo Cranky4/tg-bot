@@ -45,10 +45,19 @@ func main() {
 	expenseReporter := expense_reporter.NewReporter(repo, converter, cache)
 	reportSender := reportsender.NewReportSender(config.GRPC)
 
+	// Метрики
 	go func() {
 		err = startMetricsHTTPServer(config.Metrics.URL, config.ReporterMetrics.Port)
 		if err != nil {
 			logger.Error("Error while tracer flush", logger.LogDataItem{Key: "error", Value: err.Error()})
+		}
+	}()
+
+	// Трейсы
+	initTraces()
+	defer func() {
+		if err = flushTraces(); err != nil {
+			logger.Error("traces flush err", logger.LogDataItem{Key: "error", Value: err.Error()})
 		}
 	}()
 

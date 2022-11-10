@@ -4,7 +4,7 @@ import "context"
 
 type MetaItem struct {
 	Key   string
-	Value any
+	Value []byte
 }
 
 type Message struct {

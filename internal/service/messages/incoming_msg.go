@@ -88,12 +88,12 @@ type Message struct {
 }
 
 func (m *Model) IncomingMessage(ctx context.Context, msg Message) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "IncomingMessage")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "Messaging_IncomingMessage")
 	defer span.Finish()
 
 	// Меняет ид трейса для логов
 	if spanCtx, ok := span.Context().(jaeger.SpanContext); ok {
-		logger.SetTraceId(spanCtx.SpanID().String())
+		logger.SetTraceId(spanCtx.TraceID().String())
 	}
 
 	// Метрика времени ответа
@@ -144,7 +144,10 @@ func (m *Model) IncomingMessage(ctx context.Context, msg Message) error {
 	return m.tgClient.SendMessage(response, msg.UserID, btns)
 }
 
-func (m *Model) SendReport(report *expense_reporter.ExpenseReport) error {
+func (m *Model) SendReport(ctx context.Context, report *expense_reporter.ExpenseReport) error {
+	span, _ := opentracing.StartSpanFromContext(ctx, "Messaging_SendReport")
+	defer span.Finish()
+
 	var reporter strings.Builder
 	reporter.WriteString(
 		fmt.Sprintf("%s бюджет:\n", report.Period.String()),

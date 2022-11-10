@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/Shopify/sarama"
@@ -37,14 +36,9 @@ func (c *kafkaClient) Produce(ctx context.Context, topic string, message message
 
 	headers := make([]sarama.RecordHeader, 0, len(message.Meta))
 	for i := 0; i < len(message.Meta); i++ {
-		value, err := json.Marshal(message.Meta[i].Value)
-		if err != nil {
-			return err
-		}
-
 		headers = append(headers, sarama.RecordHeader{
 			Key:   []byte(message.Meta[i].Key),
-			Value: value,
+			Value: message.Meta[i].Value,
 		})
 	}
 

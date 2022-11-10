@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 	"github.com/prometheus/client_golang/prometheus"
 	messagebroker "gitlab.ozon.dev/cranky4/tg-bot/internal/clients/message_broker"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
@@ -37,6 +38,7 @@ func NewReportRequester(broker messagebroker.MessageBroker, queueName string, to
 
 func (r *reportRequester) SendRequestReport(ctx context.Context, userID int64, period model.ExpensePeriod, currency string) error {
 	span, ctx := opentracing.StartSpanFromContext(ctx, "SendRequestReport")
+	ext.SpanKindRPCClient.Set(span)
 	defer span.Finish()
 
 	UID := fmt.Sprintf("%d", userID)
@@ -47,12 +49,33 @@ func (r *reportRequester) SendRequestReport(ctx context.Context, userID int64, p
 		return err
 	}
 
+	traceContext := make(map[string]string)
+	err = opentracing.GlobalTracer().Inject(
+		span.Context(),
+		opentracing.TextMap,
+		opentracing.TextMapCarrier(traceContext),
+	)
+	if err != nil {
+		return err
+	}
+
+	encodedTraceContext, err := json.Marshal(traceContext)
+	if err != nil {
+		return err
+	}
+
 	err = r.broker.Produce(
 		ctx,
 		r.queueName,
 		messagebroker.Message{
 			Key:   UID,
 			Value: value,
+			Meta: []messagebroker.MetaItem{
+				{
+					Key:   "trace",
+					Value: encodedTraceContext,
+				},
+			},
 		},
 	)
 
