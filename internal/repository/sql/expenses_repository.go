@@ -62,7 +62,7 @@ func NewRepository(conf config.DatabaseConf) (repo.ExpensesRepository, error) {
 }
 
 func (r *repository) Add(ctx context.Context, ex model.Expense) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "Add")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ExpensesRepository_Add")
 	defer span.Finish()
 
 	category, found, err := r.findCategory(ctx, ex.Category)
@@ -99,7 +99,7 @@ func (r *repository) Add(ctx context.Context, ex model.Expense) error {
 }
 
 func (r *repository) GetExpenses(ctx context.Context, p model.ExpensePeriod, userId int64) ([]*model.Expense, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "GetExpenses")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ExpensesRepository_GetExpenses")
 	defer span.Finish()
 
 	exps, err := r.findExpenses(ctx, p.GetStart(time.Now()), userId)
@@ -111,7 +111,7 @@ func (r *repository) GetExpenses(ctx context.Context, p model.ExpensePeriod, use
 }
 
 func (r *repository) SetLimit(ctx context.Context, categoryName string, userId, amount int64) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "SetLimit")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ExpensesRepository_SetLimit")
 	defer span.Finish()
 
 	tx, err := r.db.BeginTx(ctx, &sql.TxOptions{})
@@ -147,7 +147,7 @@ func (r *repository) SetLimit(ctx context.Context, categoryName string, userId, 
 }
 
 func (r *repository) GetFreeLimit(ctx context.Context, categoryName string, userId int64) (int64, bool, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "GetFreeLimit")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ExpensesRepository_GetFreeLimit")
 	defer span.Finish()
 
 	category, found, err := r.findCategory(ctx, categoryName)

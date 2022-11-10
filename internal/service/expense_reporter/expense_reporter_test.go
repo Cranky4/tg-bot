@@ -42,10 +42,11 @@ func TestGetReportWithSuccess(t *testing.T) {
 
 	ctx := context.Background()
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
+	_, wrapedCtx2 := opentracing.StartSpanFromContext(wrapedCtx, "wrap2")
 
 	cache := cachemocks.NewMockCache(ctrl)
 	cacheKey := fmt.Sprintf("%d-%v-%s", userId, period, time.Now().Format("2006-01-02"))
-	cache.EXPECT().Get(wrapedCtx, cacheKey).Return(nil, false, nil)
+	cache.EXPECT().Get(wrapedCtx2, cacheKey).Return(nil, false, nil)
 	cache.EXPECT().Set(wrapedCtx, cacheKey, ExpenseReport{
 		Rows:   map[string]float64{"Категория": 125},
 		UserID: userId,
@@ -77,10 +78,11 @@ func TestGetReportWithEmptyReport(t *testing.T) {
 
 	ctx := context.Background()
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
+	_, wrapedCtx2 := opentracing.StartSpanFromContext(wrapedCtx, "wrap2")
 
 	cache := cachemocks.NewMockCache(ctrl)
 	cacheKey := fmt.Sprintf("%d-%v-%s", userId, period, time.Now().Format("2006-01-02"))
-	cache.EXPECT().Get(wrapedCtx, cacheKey).Return(nil, false, nil)
+	cache.EXPECT().Get(wrapedCtx2, cacheKey).Return(nil, false, nil)
 	cache.EXPECT().Set(wrapedCtx, cacheKey, ExpenseReport{
 		Rows:   map[string]float64{},
 		UserID: userId,
@@ -105,10 +107,11 @@ func TestGetReportWithDBError(t *testing.T) {
 
 	ctx := context.Background()
 	_, wrapedCtx := opentracing.StartSpanFromContext(ctx, "wrap1")
+	_, wrapedCtx2 := opentracing.StartSpanFromContext(wrapedCtx, "wrap2")
 
 	cache := cachemocks.NewMockCache(ctrl)
 	cacheKey := fmt.Sprintf("%d-%v-%s", userId, period, time.Now().Format("2006-01-02"))
-	cache.EXPECT().Get(wrapedCtx, cacheKey).Return(nil, false, nil)
+	cache.EXPECT().Get(wrapedCtx2, cacheKey).Return(nil, false, nil)
 
 	reporter := NewReporter(repo, testConverter, cache)
 

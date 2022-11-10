@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/utils/tracer"
 	pkg_api "gitlab.ozon.dev/cranky4/tg-bot/pkg/reporter_v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
@@ -31,31 +31,11 @@ func (s *server) SendReport(ctx context.Context, request *pkg_api.SendReportRequ
 	span, ctx := opentracing.StartSpanFromContext(ctx, "GRPCServer_GetReport")
 
 	md, ok := metadata.FromIncomingContext(ctx)
+	var err error
 	if ok {
-		logger.Debug(fmt.Sprintf("%v", md))
-		for k, v := range md {
-			if k == "trace" {
-				var m map[string]string
-				err := json.Unmarshal([]byte(v[0]), &m)
-				if err != nil {
-					return nil, err
-				}
-
-				incomingTrace, err := opentracing.GlobalTracer().Extract(
-					opentracing.TextMap,
-					opentracing.TextMapCarrier(m),
-				)
-				if err != nil {
-					return nil, err
-				}
-
-				span, ctx = opentracing.StartSpanFromContext(ctx, "GRPCServer_GetReport", ext.RPCServerOption(incomingTrace))
-
-				if err != nil {
-					return nil, err
-				}
-				break
-			}
+		span, ctx, err = extractTraceFromMeta(ctx, span, md)
+		if err != nil {
+			return nil, err
 		}
 	}
 	defer span.Finish()
@@ -65,7 +45,7 @@ func (s *server) SendReport(ctx context.Context, request *pkg_api.SendReportRequ
 		UserID: request.GetUserId(),
 	}
 
-	err := s.messagesService.SendReport(ctx, &report)
+	err = s.messagesService.SendReport(ctx, &report)
 	if err != nil {
 		return nil, err
 	}
@@ -119,4 +99,26 @@ func initHTTPServer(httpConf config.HTTPConf, grpcConf config.GRPCConf) error {
 	}
 
 	return nil
+}
+
+func extractTraceFromMeta(ctx context.Context, span opentracing.Span, md metadata.MD) (opentracing.Span, context.Context, error) {
+	for k, v := range md {
+		if k == "trace" {
+			incomingTrace, err := tracer.ExtractTracerContext([]byte(v[0]))
+			if err != nil {
+				return nil, ctx, err
+			}
+
+			newSpan, newCtx := opentracing.StartSpanFromContext(ctx, "GRPCServer_GetReport", ext.RPCServerOption(incomingTrace))
+
+			if err != nil {
+				return span, ctx, err
+			}
+
+			return newSpan, newCtx, nil
+
+		}
+	}
+
+	return span, ctx, nil
 }

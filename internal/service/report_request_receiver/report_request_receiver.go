@@ -14,6 +14,7 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	reportrequester "gitlab.ozon.dev/cranky4/tg-bot/internal/service/report_requester"
 	reportsender "gitlab.ozon.dev/cranky4/tg-bot/internal/service/report_sender"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/utils/tracer"
 )
 
 type ReportRequestReceiver interface {
@@ -73,30 +74,10 @@ func (r *reportRequestReceiver) Start(ctx context.Context) error {
 				r.totalMessageConsumedCounter.WithLabelValues(r.queue).Inc()
 			}
 
-			span, ctx := opentracing.StartSpanFromContext(ctx, "ReportRequestReceiver")
-			for _, v := range msg.Meta {
-				if v.Key == "trace" {
-					var m map[string]string
-					err := json.Unmarshal(v.Value, &m)
-					if err != nil {
-						return err
-					}
-
-					incomingTrace, err := span.Tracer().Extract(
-						opentracing.TextMap,
-						opentracing.TextMapCarrier(m),
-					)
-					if err != nil {
-						return err
-					}
-
-					span, ctx = opentracing.StartSpanFromContext(ctx, "ReportRequestReceiver_Receive", ext.RPCServerOption(incomingTrace))
-
-					if err != nil {
-						return err
-					}
-					break
-				}
+			span, wrapedCtx := opentracing.StartSpanFromContext(ctx, "ReportRequestReceiver")
+			span, wrapedCtx, err := extractTraceFromMeta(wrapedCtx, span, msg.Meta)
+			if err != nil {
+				return err
 			}
 			defer span.Finish()
 
@@ -107,13 +88,13 @@ func (r *reportRequestReceiver) Start(ctx context.Context) error {
 
 			logger.Debug(fmt.Sprintf("получено сообщение %v", msg))
 
-			err := json.Unmarshal(msg.Value, reportRequest)
+			err = json.Unmarshal(msg.Value, reportRequest)
 			if err != nil {
 				return err
 			}
 
 			report, err := r.expenseReporter.GetReport(
-				ctx,
+				wrapedCtx,
 				reportRequest.Period,
 				reportRequest.Currency,
 				reportRequest.UserID,
@@ -122,10 +103,31 @@ func (r *reportRequestReceiver) Start(ctx context.Context) error {
 				return err
 			}
 
-			if err := r.reportSender.Send(ctx, report); err != nil {
+			if err := r.reportSender.Send(wrapedCtx, report); err != nil {
 				return err
 			}
 
 		}
 	}
+}
+
+func extractTraceFromMeta(ctx context.Context, span opentracing.Span, meta []messagebroker.MetaItem) (opentracing.Span, context.Context, error) {
+	for _, v := range meta {
+		if v.Key == "trace" {
+			incomingTrace, err := tracer.ExtractTracerContext(v.Value)
+			if err != nil {
+				return nil, ctx, err
+			}
+
+			newSpan, newCtx := opentracing.StartSpanFromContext(ctx, "ReportRequestReceiver_Receive", ext.RPCServerOption(incomingTrace))
+
+			if err != nil {
+				return nil, newCtx, err
+			}
+
+			return newSpan, newCtx, nil
+		}
+	}
+
+	return span, ctx, nil
 }

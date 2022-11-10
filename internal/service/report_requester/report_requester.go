@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	messagebroker "gitlab.ozon.dev/cranky4/tg-bot/internal/clients/message_broker"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/model"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/utils/tracer"
 )
 
 type ReportRequest struct {
@@ -49,17 +50,7 @@ func (r *reportRequester) SendRequestReport(ctx context.Context, userID int64, p
 		return err
 	}
 
-	traceContext := make(map[string]string)
-	err = opentracing.GlobalTracer().Inject(
-		span.Context(),
-		opentracing.TextMap,
-		opentracing.TextMapCarrier(traceContext),
-	)
-	if err != nil {
-		return err
-	}
-
-	encodedTraceContext, err := json.Marshal(traceContext)
+	encodedTraceContext, err := tracer.InjectTracerContext(span)
 	if err != nil {
 		return err
 	}
