@@ -13,6 +13,10 @@ metrics:
   url: "/metrics"
   port: 8080
 
+reporter_metrics:
+  url: "/metrics"
+  port: 8081
+
 cache:
   mode: "memory" # redis
   length: 10 # только для memory кеша

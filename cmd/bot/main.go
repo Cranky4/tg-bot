@@ -17,6 +17,7 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	servicelogger "gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/metrics"
 	reportrequester "gitlab.ozon.dev/cranky4/tg-bot/internal/service/report_requester"
 )
 
@@ -56,9 +57,6 @@ func main() {
 	}(ctx)
 
 	// Метрики
-	requestsTotalCounter := initTotalCounter()
-	responseTimeSummary := initResponseTime()
-	brokerMessageProduced := initMessageBrokerMessagesProducesTotalCounter()
 	go func() {
 		err = startMetricsHTTPServer(config.Metrics.URL, config.Metrics.Port)
 		if err != nil {
@@ -90,15 +88,22 @@ func main() {
 		tgClient,
 		converter.GetAvailableCurrencies(),
 		expense_processor.NewProcessor(repo, converter, cache),
-		reportrequester.NewReportRequester(broker, config.MessageBroker.Queue, brokerMessageProduced),
-		requestsTotalCounter,
-		responseTimeSummary,
+		reportrequester.NewReportRequester(broker, config.MessageBroker.Queue, metrics.MessageBrokerMessagesProducesTotalCounter),
+		metrics.TotalRequestCounter,
+		metrics.ResponseTimeSummary,
 	)
 
-	// GRPC + Gateway
+	// GRPC
 	go func() {
-		if err := initGRPСServer(config.GRPC, config.HTTP, messagesService); err != nil {
+		if err := initGRPСServer(config.GRPC, messagesService); err != nil {
 			logger.Fatal(fmt.Sprintf("GRPC server err %s", err))
+		}
+	}()
+
+	// HTTP
+	go func() {
+		if err := initHTTPServer(config.HTTP, config.GRPC); err != nil {
+			logger.Fatal(fmt.Sprintf("HTTP server err %s", err))
 		}
 	}()
 

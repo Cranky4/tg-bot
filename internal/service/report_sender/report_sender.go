@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/opentracing/opentracing-go"
-	"gitlab.ozon.dev/cranky4/tg-bot/api"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
+	api "gitlab.ozon.dev/cranky4/tg-bot/pkg/reporter_v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -41,15 +41,14 @@ func (s *reportSender) Send(ctx context.Context, report *expense_reporter.Expens
 		err = conn.Close()
 	}()
 
-	c := api.NewReporterClient(conn)
+	c := api.NewReporterV1Client(conn)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	_, err = c.SendReport(ctx, &api.SendReportRequest{
-		IsEmpty: report.IsEmpty,
-		Rows:    report.Rows,
-		UserId:  report.UserID,
+		Rows:   report.Rows,
+		UserId: report.UserID,
 	})
 
 	return err

@@ -1,20 +1,22 @@
-package main
+package metrics
 
 import (
-	"fmt"
-	"net/http"
-	"time"
-
-	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var labelNames []string = []string{"command"}
+var (
+	labelNames []string = []string{"command"}
 
-func initTotalCounter() *prometheus.CounterVec {
-	return promauto.NewCounterVec(
+	TotalRequestCounter                       *prometheus.CounterVec
+	GRPCReqeustTotalCounter                   *prometheus.CounterVec
+	MessageBrokerMessagesProducesTotalCounter *prometheus.CounterVec
+	ResponseTimeSummary                       *prometheus.SummaryVec
+	MessageBrokerMessagesConsumedTotalCounter *prometheus.CounterVec
+)
+
+func init() {
+	TotalRequestCounter = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "tg_bot",
 			Subsystem: "tg_client",
@@ -23,10 +25,8 @@ func initTotalCounter() *prometheus.CounterVec {
 		},
 		labelNames,
 	)
-}
 
-func initGRPCTotalCounter() *prometheus.CounterVec {
-	return promauto.NewCounterVec(
+	GRPCReqeustTotalCounter = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "tg_bot",
 			Subsystem: "tg_client",
@@ -35,22 +35,18 @@ func initGRPCTotalCounter() *prometheus.CounterVec {
 		},
 		labelNames,
 	)
-}
 
-func initMessageBrokerMessagesProducesTotalCounter() *prometheus.CounterVec {
-	return promauto.NewCounterVec(
+	MessageBrokerMessagesProducesTotalCounter = promauto.NewCounterVec(
 		prometheus.CounterOpts{
 			Namespace: "tg_bot",
 			Subsystem: "tg_client",
 			Help:      "Total count of Message Broker's messages produced",
 			Name:      "message_broker_messages_produced_total",
 		},
-		labelNames,
+		[]string{"queue"},
 	)
-}
 
-func initResponseTime() *prometheus.SummaryVec {
-	return promauto.NewSummaryVec(
+	ResponseTimeSummary = promauto.NewSummaryVec(
 		prometheus.SummaryOpts{
 			Namespace: "tg_bot",
 			Subsystem: "tg_client",
@@ -63,20 +59,14 @@ func initResponseTime() *prometheus.SummaryVec {
 			},
 		}, labelNames,
 	)
-}
 
-func startMetricsHTTPServer(url string, port int) error {
-	http.Handle(url, promhttp.Handler())
-
-	server := &http.Server{
-		Addr:              fmt.Sprintf(":%d", port),
-		ReadHeaderTimeout: 3 * time.Second,
-	}
-
-	err := server.ListenAndServe()
-	if err != nil {
-		return errors.Wrap(err, "ошибка старта сервера метрик")
-	}
-
-	return nil
+	MessageBrokerMessagesConsumedTotalCounter = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: "tg_bot",
+			Subsystem: "reporter",
+			Help:      "Total count of Message Broker's messages consumed",
+			Name:      "message_broker_messages_consumed_total",
+		},
+		[]string{"queue"},
+	)
 }

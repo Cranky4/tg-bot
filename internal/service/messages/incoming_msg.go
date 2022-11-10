@@ -151,7 +151,7 @@ func (m *Model) SendReport(report *expense_reporter.ExpenseReport) error {
 	)
 	defer reporter.Reset()
 
-	if report.IsEmpty {
+	if report.IsEmpty() {
 		reporter.WriteString("пусто\n")
 	}
 

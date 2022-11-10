@@ -13,6 +13,7 @@ import (
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/metrics"
 	reportrequestreceiver "gitlab.ozon.dev/cranky4/tg-bot/internal/service/report_request_receiver"
 	reportsender "gitlab.ozon.dev/cranky4/tg-bot/internal/service/report_sender"
 )
@@ -44,9 +45,8 @@ func main() {
 	expenseReporter := expense_reporter.NewReporter(repo, converter, cache)
 	reportSender := reportsender.NewReportSender(config.GRPC)
 
-	brokerMessageConsumedCounter := initMessageBrokerMessagesConsumedTotalCounter()
 	go func() {
-		err = startMetricsHTTPServer(config.Metrics.URL, config.Metrics.Port+1) // hack!
+		err = startMetricsHTTPServer(config.Metrics.URL, config.ReporterMetrics.Port)
 		if err != nil {
 			logger.Error("Error while tracer flush", logger.LogDataItem{Key: "error", Value: err.Error()})
 		}
@@ -57,7 +57,7 @@ func main() {
 		config.MessageBroker.Queue,
 		expenseReporter,
 		reportSender,
-		brokerMessageConsumedCounter,
+		metrics.MessageBrokerMessagesConsumedTotalCounter,
 	)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)

@@ -47,10 +47,9 @@ func TestGetReportWithSuccess(t *testing.T) {
 	cacheKey := fmt.Sprintf("%d-%v-%s", userId, period, time.Now().Format("2006-01-02"))
 	cache.EXPECT().Get(wrapedCtx, cacheKey).Return(nil, false, nil)
 	cache.EXPECT().Set(wrapedCtx, cacheKey, ExpenseReport{
-		IsEmpty: false,
-		Rows:    map[string]float64{"Категория": 125},
-		UserID:  userId,
-		Period:  period,
+		Rows:   map[string]float64{"Категория": 125},
+		UserID: userId,
+		Period: period,
 	}, 24*time.Hour)
 
 	reporter := NewReporter(repo, testConverter, cache)
@@ -66,7 +65,7 @@ func TestGetReportWithSuccess(t *testing.T) {
 
 	report, err := reporter.GetReport(ctx, period, "RUB", userId)
 	assert.NoError(t, err)
-	assert.False(t, report.IsEmpty)
+	assert.False(t, report.IsEmpty())
 	assert.Len(t, report.Rows, 1)
 }
 
@@ -83,10 +82,9 @@ func TestGetReportWithEmptyReport(t *testing.T) {
 	cacheKey := fmt.Sprintf("%d-%v-%s", userId, period, time.Now().Format("2006-01-02"))
 	cache.EXPECT().Get(wrapedCtx, cacheKey).Return(nil, false, nil)
 	cache.EXPECT().Set(wrapedCtx, cacheKey, ExpenseReport{
-		IsEmpty: true,
-		Rows:    map[string]float64{},
-		UserID:  userId,
-		Period:  period,
+		Rows:   map[string]float64{},
+		UserID: userId,
+		Period: period,
 	}, 24*time.Hour)
 
 	reporter := NewReporter(repo, testConverter, cache)
@@ -95,7 +93,7 @@ func TestGetReportWithEmptyReport(t *testing.T) {
 
 	report, err := reporter.GetReport(ctx, period, "RUB", userId)
 	assert.NoError(t, err)
-	assert.True(t, report.IsEmpty)
+	assert.True(t, report.IsEmpty())
 	assert.Len(t, report.Rows, 0)
 }
 

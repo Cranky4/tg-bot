@@ -12,16 +12,17 @@ const (
 )
 
 type Config struct {
-	Token         string            `yaml:"token"`
-	Storage       StorageConf       `yaml:"storage"`
-	Database      DatabaseConf      `yaml:"database"`
-	Logger        LoggerConf        `yaml:"logger"`
-	Metrics       MetricsConf       `yaml:"metrics"`
-	Cache         CacheConf         `yaml:"cache"`
-	Redis         RedisConf         `yaml:"redis"`
-	MessageBroker MessageBrokerConf `yaml:"message_broker"`
-	GRPC          GRPCConf          `yaml:"grpc"`
-	HTTP          HTTPConf          `yaml:"http"`
+	Token           string            `yaml:"token"`
+	Storage         StorageConf       `yaml:"storage"`
+	Database        DatabaseConf      `yaml:"database"`
+	Logger          LoggerConf        `yaml:"logger"`
+	Metrics         MetricsConf       `yaml:"metrics"`
+	ReporterMetrics MetricsConf       `yaml:"reporter_metrics"`
+	Cache           CacheConf         `yaml:"cache"`
+	Redis           RedisConf         `yaml:"redis"`
+	MessageBroker   MessageBrokerConf `yaml:"message_broker"`
+	GRPC            GRPCConf          `yaml:"grpc"`
+	HTTP            HTTPConf          `yaml:"http"`
 }
 
 type TokenGetter interface {

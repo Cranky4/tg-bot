@@ -23,10 +23,13 @@ type ExpenseReporter interface {
 }
 
 type ExpenseReport struct {
-	IsEmpty bool
-	Rows    map[string]float64
-	UserID  int64
-	Period  model.ExpensePeriod
+	Rows   map[string]float64
+	UserID int64
+	Period model.ExpensePeriod
+}
+
+func (r ExpenseReport) IsEmpty() bool {
+	return len(r.Rows) == 0
 }
 
 func (r ExpenseReport) MarshalBinary() (data []byte, err error) {
@@ -76,10 +79,6 @@ func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, cu
 		if e.UserId == userId {
 			result[e.Category] += e.Amount
 		}
-	}
-
-	if len(result) == 0 {
-		report.IsEmpty = true
 	}
 
 	for category, amount := range result {

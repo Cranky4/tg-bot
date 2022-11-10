@@ -130,18 +130,26 @@ install-protobuf:
 	go install google.golang.org/protobuf/cmd/protoc-gen-go
 	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
 
-generate-grpc:
+gf:
 	protoc ./api/Reporter.proto \
-		--go_opt=paths=source_relative \
-		--go_out=. \
-		--go-grpc_out=. \
-		--go-grpc_opt=paths=source_relative \
-	protoc ./api/Reporter.proto \
-		--grpc-gateway_out ./ \
+		--grpc-gateway_out ./pkg \
 		--grpc-gateway_opt logtostderr=true \
 		--grpc-gateway_opt paths=source_relative \
 		--grpc-gateway_opt generate_unbound_methods=true
-	protoc ./api/Reporter.proto \
-		--openapiv2_out ./ \
+
+generate-grpc: 
+	mkdir -p pkg/reporter_v1
+	protoc --proto_path api/ \
+		--go_out=pkg/reporter_v1 --go_opt=paths=import \
+		--go-grpc_out=pkg/reporter_v1 --go-grpc_opt=paths=import \
+		--grpc-gateway_out ./pkg/reporter_v1 \
+		--grpc-gateway_opt logtostderr=true \
+		--grpc-gateway_opt paths=source_relative \
+		--grpc-gateway_opt generate_unbound_methods=true \
+		--validate_out lang=go:pkg/reporter_v1 \
+		--openapiv2_out ./pkg/reporter_v1 \
 		--openapiv2_opt logtostderr=true \
-		--openapiv2_opt generate_unbound_methods=true
+		--openapiv2_opt generate_unbound_methods=true \
+		api/Reporter.proto
+	mv pkg/reporter_v1/gitlab.ozon.dev/cranky4/tg-bot/api/* pkg/reporter_v1
+	rm -rf pkg/reporter_v1/gitlab.ozon.dev

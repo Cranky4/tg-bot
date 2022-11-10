@@ -1,12 +1,12 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "api/Reporter.proto",
+    "title": "Reporter.proto",
     "version": "version not set"
   },
   "tags": [
     {
-      "name": "Reporter"
+      "name": "ReporterV1"
     }
   ],
   "consumes": [
@@ -16,9 +16,9 @@
     "application/json"
   ],
   "paths": {
-    "/tgBot.Reporter/SendReport": {
+    "/ReporterV1.ReporterV1/SendReport": {
       "post": {
-        "operationId": "Reporter_SendReport",
+        "operationId": "ReporterV1_SendReport",
         "responses": {
           "200": {
             "description": "A successful response.",
@@ -40,17 +40,37 @@
             "in": "body",
             "required": true,
             "schema": {
-              "$ref": "#/definitions/tgBotSendReportRequest"
+              "$ref": "#/definitions/ReporterV1SendReportRequest"
             }
           }
         ],
         "tags": [
-          "Reporter"
+          "ReporterV1"
         ]
       }
     }
   },
   "definitions": {
+    "ReporterV1SendReportRequest": {
+      "type": "object",
+      "properties": {
+        "rows": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "userId": {
+          "type": "string",
+          "format": "int64"
+        },
+        "period": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
     "protobufAny": {
       "type": "object",
       "properties": {
@@ -75,29 +95,6 @@
           "items": {
             "$ref": "#/definitions/protobufAny"
           }
-        }
-      }
-    },
-    "tgBotSendReportRequest": {
-      "type": "object",
-      "properties": {
-        "IsEmpty": {
-          "type": "boolean"
-        },
-        "Rows": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "number",
-            "format": "double"
-          }
-        },
-        "userId": {
-          "type": "string",
-          "format": "int64"
-        },
-        "period": {
-          "type": "string",
-          "format": "int64"
         }
       }
     }

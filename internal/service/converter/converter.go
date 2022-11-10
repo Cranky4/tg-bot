@@ -2,9 +2,11 @@ package serviceconverter
 
 import (
 	"context"
+	"fmt"
 	"math"
 
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/clients/exchangerate"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 )
 
 const (
@@ -85,6 +87,8 @@ func (c *exchConverter) Load(ctx context.Context) error {
 		CNY: res.Rates.CNY,
 		EUR: res.Rates.EUR,
 	}
+
+	logger.Debug(fmt.Sprintf("%v", c.rates))
 
 	return nil
 }
