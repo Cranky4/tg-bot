@@ -87,6 +87,146 @@
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
+            "barAlignment": -1,
+            "drawStyle": "line",
+            "fillOpacity": 47,
+            "gradientMode": "hue",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Consumed"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Produced"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "builder",
+          "expr": "tg_bot_tg_client_message_broker_messages_produced_total",
+          "legendFormat": "Produced",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "builder",
+          "exemplar": false,
+          "expr": "tg_bot_reporter_message_broker_messages_consumed_total",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "Consumed",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Message Broker' messages rates",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
             "barAlignment": 0,
             "drawStyle": "line",
             "fillOpacity": 0,
@@ -133,9 +273,101 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 1
+        "y": 11
       },
-      "id": 2,
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "builder",
+          "expr": "tg_bot_tg_client_grpc_requests_total",
+          "legendFormat": "{{job}}:{{command}}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "GRPC Requests count",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "${DS_PROMETHEUS}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 21
+      },
+      "id": 15,
       "options": {
         "legend": {
           "calcs": [],
@@ -161,7 +393,7 @@
           "refId": "A"
         }
       ],
-      "title": "Requests count",
+      "title": "TG Bot Requests count",
       "type": "timeseries"
     },
     {
@@ -220,8 +452,7 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "ms"
+          }
         },
         "overrides": [
           {
@@ -260,7 +491,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 11
+        "y": 31
       },
       "id": 4,
       "options": {
@@ -349,8 +580,7 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "ms"
+          }
         },
         "overrides": [
           {
@@ -389,7 +619,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 11
+        "y": 31
       },
       "id": 5,
       "options": {
@@ -478,8 +708,7 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "ms"
+          }
         },
         "overrides": [
           {
@@ -518,7 +747,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 19
+        "y": 39
       },
       "id": 6,
       "options": {
@@ -610,8 +839,7 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "ms"
+          }
         },
         "overrides": [
           {
@@ -665,7 +893,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 19
+        "y": 39
       },
       "id": 7,
       "options": {
@@ -704,7 +932,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 27
+        "y": 47
       },
       "id": 11,
       "panels": [],
@@ -764,8 +992,7 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "decmbytes"
+          }
         },
         "overrides": []
       },
@@ -773,7 +1000,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 28
+        "y": 48
       },
       "id": 13,
       "options": {
@@ -857,8 +1084,7 @@
                 "value": 80
               }
             ]
-          },
-          "unit": "decmbytes"
+          }
         },
         "overrides": []
       },
@@ -866,7 +1092,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 28
+        "y": 48
       },
       "id": 14,
       "options": {
@@ -894,7 +1120,7 @@
           "refId": "A"
         }
       ],
-      "title": "Alloc",
+      "title": "Alloc megabytes",
       "type": "timeseries"
     }
   ],
@@ -906,13 +1132,13 @@
     "list": []
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-15m",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "",
   "title": "Dev graph",
   "uid": "e3BjyIN4z",
-  "version": 5,
+  "version": 8,
   "weekStart": ""
 }

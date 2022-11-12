@@ -12,13 +12,17 @@ const (
 )
 
 type Config struct {
-	Token    string       `yaml:"token"`
-	Storage  StorageConf  `yaml:"storage"`
-	Database DatabaseConf `yaml:"database"`
-	Logger   LoggerConf   `yaml:"logger"`
-	Metrics  MetricsConf  `yaml:"metrics"`
-	Cache    CacheConf    `yaml:"cache"`
-	Redis    RedisConf    `yaml:"redis"`
+	Token           string            `yaml:"token"`
+	Storage         StorageConf       `yaml:"storage"`
+	Database        DatabaseConf      `yaml:"database"`
+	Logger          LoggerConf        `yaml:"logger"`
+	Metrics         MetricsConf       `yaml:"metrics"`
+	ReporterMetrics MetricsConf       `yaml:"reporter_metrics"`
+	Cache           CacheConf         `yaml:"cache"`
+	Redis           RedisConf         `yaml:"redis"`
+	MessageBroker   MessageBrokerConf `yaml:"message_broker"`
+	GRPC            GRPCConf          `yaml:"grpc"`
+	HTTP            HTTPConf          `yaml:"http"`
 }
 
 type TokenGetter interface {
@@ -52,6 +56,20 @@ type RedisConf struct {
 	Addr     string `yaml:"addr"`
 	Password string `yaml:"password"`
 	DB       int    `yaml:"db"`
+}
+
+type MessageBrokerConf struct {
+	Adapter string `yaml:"adapter"`
+	Addr    string `yaml:"addr"`
+	Queue   string `yaml:"queue"`
+	Version string `yaml:"version"`
+}
+
+type GRPCConf struct {
+	Port int `yaml:"port"`
+}
+type HTTPConf struct {
+	Port int `yaml:"port"`
 }
 
 func New() (*Config, error) {

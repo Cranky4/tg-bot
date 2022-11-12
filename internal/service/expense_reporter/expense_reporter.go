@@ -23,8 +23,13 @@ type ExpenseReporter interface {
 }
 
 type ExpenseReport struct {
-	IsEmpty bool
-	Rows    map[string]float64
+	Rows   map[string]float64
+	UserID int64
+	Period model.ExpensePeriod
+}
+
+func (r ExpenseReport) IsEmpty() bool {
+	return len(r.Rows) == 0
 }
 
 func (r ExpenseReport) MarshalBinary() (data []byte, err error) {
@@ -46,7 +51,7 @@ func NewReporter(repo repo.ExpensesRepository, conv serviceconverter.Converter, 
 }
 
 func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, currency string, userId int64) (*ExpenseReport, error) {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "GetReport")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ExpenseReporter_GetReport")
 	defer span.Finish()
 
 	report, ok, err := r.getCached(ctx, userId, period)
@@ -65,17 +70,15 @@ func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, cu
 
 	result := make(map[string]int64) // [категория]сумма
 	report = ExpenseReport{
-		Rows: make(map[string]float64),
+		Rows:   make(map[string]float64),
+		UserID: userId,
+		Period: period,
 	}
 
 	for _, e := range expenses {
 		if e.UserId == userId {
 			result[e.Category] += e.Amount
 		}
-	}
-
-	if len(result) == 0 {
-		report.IsEmpty = true
 	}
 
 	for category, amount := range result {
@@ -93,7 +96,7 @@ func (r *reporter) GetReport(ctx context.Context, period model.ExpensePeriod, cu
 }
 
 func (r *reporter) getCached(ctx context.Context, userId int64, period model.ExpensePeriod) (ExpenseReport, bool, error) {
-	span, _ := opentracing.StartSpanFromContext(ctx, "getCached")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "ExpenseReporter_getCached")
 	defer span.Finish()
 
 	value, ok, err := r.cache.Get(ctx, getCacheKey(userId, period))

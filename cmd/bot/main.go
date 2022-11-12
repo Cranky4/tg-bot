@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os/signal"
 	"syscall"
@@ -13,10 +14,11 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/config"
 	serviceconverter "gitlab.ozon.dev/cranky4/tg-bot/internal/service/converter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_processor"
-	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	servicelogger "gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
 	servicemessages "gitlab.ozon.dev/cranky4/tg-bot/internal/service/messages"
+	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/metrics"
+	reportrequester "gitlab.ozon.dev/cranky4/tg-bot/internal/service/report_requester"
 )
 
 func main() {
@@ -55,10 +57,8 @@ func main() {
 	}(ctx)
 
 	// Метрики
-	requestsTotalCounter := initTotalCounter()
-	responseTimeSummary := initResponseTime()
 	go func() {
-		err = startHTTPServer(config.Metrics.URL, config.Metrics.Port)
+		err = startMetricsHTTPServer(config.Metrics.URL, config.Metrics.Port)
 		if err != nil {
 			logger.Error("Error while tracer flush", servicelogger.LogDataItem{Key: "error", Value: err.Error()})
 		}
@@ -75,17 +75,37 @@ func main() {
 	// Кэш
 	cache, err := initCache(*config)
 	if err != nil {
-		log.Fatal("cache init failed:", err)
+		logger.Fatal(fmt.Sprintf("cache init failed: %s", err))
+	}
+
+	// Брокер сообщений
+	broker, err := initMessageBroker(config.MessageBroker)
+	if err != nil {
+		logger.Fatal(fmt.Sprintf("broker message init failed: %s", err))
 	}
 
 	messagesService := servicemessages.New(
 		tgClient,
 		converter.GetAvailableCurrencies(),
 		expense_processor.NewProcessor(repo, converter, cache),
-		expense_reporter.NewReporter(repo, converter, cache),
-		requestsTotalCounter,
-		responseTimeSummary,
+		reportrequester.NewReportRequester(broker, config.MessageBroker.Queue, metrics.MessageBrokerMessagesProducesTotalCounter),
+		metrics.TotalRequestCounter,
+		metrics.ResponseTimeSummary,
 	)
+
+	// GRPC
+	go func() {
+		if err := initGRPСServer(config.GRPC, messagesService); err != nil {
+			logger.Fatal(fmt.Sprintf("GRPC server err %s", err))
+		}
+	}()
+
+	// HTTP
+	go func() {
+		if err := initHTTPServer(config.HTTP, config.GRPC); err != nil {
+			logger.Fatal(fmt.Sprintf("HTTP server err %s", err))
+		}
+	}()
 
 	tgClient.ListenUpdates(ctx, messagesService)
 

@@ -2,6 +2,7 @@ package servicemessages
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_processor"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/expense_reporter"
 	"gitlab.ozon.dev/cranky4/tg-bot/internal/service/logger"
+	reportrequester "gitlab.ozon.dev/cranky4/tg-bot/internal/service/report_requester"
 )
 
 const (
@@ -53,7 +55,7 @@ type Model struct {
 	tgClient             MessageSender
 	currencies           map[string]struct{}
 	expenseProcessor     expense_processor.ExpenseProcessor
-	expenseReporter      expense_reporter.ExpenseReporter
+	reportRequester      reportrequester.ReportRequester
 	currency             string
 	totalRequestsCounter *prometheus.CounterVec
 	responseTimeSummary  *prometheus.SummaryVec
@@ -63,7 +65,7 @@ func New(
 	tgClient MessageSender,
 	currencies map[string]struct{},
 	expenseProcessor expense_processor.ExpenseProcessor,
-	expenseReporter expense_reporter.ExpenseReporter,
+	reportRequester reportrequester.ReportRequester,
 	totalRequestsCounter *prometheus.CounterVec,
 	responseTimeSummary *prometheus.SummaryVec,
 ) *Model {
@@ -72,7 +74,7 @@ func New(
 		currencies:           currencies,
 		currency:             serviceconverter.RUB,
 		expenseProcessor:     expenseProcessor,
-		expenseReporter:      expenseReporter,
+		reportRequester:      reportRequester,
 		totalRequestsCounter: totalRequestsCounter,
 		responseTimeSummary:  responseTimeSummary,
 	}
@@ -86,12 +88,12 @@ type Message struct {
 }
 
 func (m *Model) IncomingMessage(ctx context.Context, msg Message) error {
-	span, ctx := opentracing.StartSpanFromContext(ctx, "IncomingMessage")
+	span, ctx := opentracing.StartSpanFromContext(ctx, "Messaging_IncomingMessage")
 	defer span.Finish()
 
 	// Меняет ид трейса для логов
 	if spanCtx, ok := span.Context().(jaeger.SpanContext); ok {
-		logger.SetTraceId(spanCtx.SpanID().String())
+		logger.SetTraceId(spanCtx.TraceID().String())
 	}
 
 	// Метрика времени ответа
@@ -140,4 +142,27 @@ func (m *Model) IncomingMessage(ctx context.Context, msg Message) error {
 	}
 
 	return m.tgClient.SendMessage(response, msg.UserID, btns)
+}
+
+func (m *Model) SendReport(ctx context.Context, report *expense_reporter.ExpenseReport) error {
+	span, _ := opentracing.StartSpanFromContext(ctx, "Messaging_SendReport")
+	defer span.Finish()
+
+	var reporter strings.Builder
+	reporter.WriteString(
+		fmt.Sprintf("%s бюджет:\n", report.Period.String()),
+	)
+	defer reporter.Reset()
+
+	if report.IsEmpty() {
+		reporter.WriteString("пусто\n")
+	}
+
+	for category, amount := range report.Rows {
+		if _, err := reporter.WriteString(fmt.Sprintf("%s - %.02f %s\n", category, amount, m.currency)); err != nil {
+			return err
+		}
+	}
+
+	return m.tgClient.SendMessage(reporter.String(), report.UserID, mainMenu)
 }

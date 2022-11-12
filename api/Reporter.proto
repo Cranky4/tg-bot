@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+import "google/protobuf/empty.proto";
+
+option go_package = "gitlab.ozon.dev/cranky4/tg-bot/api";
+
+package ReporterV1;
+
+service ReporterV1 {
+    rpc SendReport(SendReportRequest) returns (google.protobuf.Empty);
+}
+
+message SendReportRequest {
+    map<string, double> rows = 1;
+    int64 user_id = 2;
+    int64 period = 3;
+}

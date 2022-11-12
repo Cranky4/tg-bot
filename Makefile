@@ -7,6 +7,7 @@ LINTVER=v1.49.0
 LINTBIN=${BINDIR}/lint_${GOVER}_${LINTVER}
 PACKAGE=gitlab.ozon.dev/cranky4/tg-bot/cmd/bot
 SEEDER=gitlab.ozon.dev/cranky4/tg-bot/cmd/seeder
+REPORTER=gitlab.ozon.dev/cranky4/tg-bot/cmd/reporter
 TG_BOT_DB="tg_bot"
 TG_BOT_DB_USER="tg_bot_user"
 TG_BOT_DB_PASSWORD="secret"
@@ -18,8 +19,12 @@ TG_BOT_DB_PORT="5432"
 
 all: format build test lint
 
-build: bindir
+build: bindir build-bot build-reporter
+
+build-bot:
 	go build -o ${BINDIR}/bot ${PACKAGE}
+build-reporter:
+	go build -o ${BINDIR}/reporter ${REPORTER}
 
 test:
 	go test ./internal/...
@@ -32,6 +37,9 @@ run:
 run-seeder:
 	go run ${SEEDER}
 
+run-reporter:
+	go run ${REPORTER} 2>&1 | tee logs/reporter.log
+
 generate: install-mockgen
 	${MOCKGEN} \
 		-source=internal/service/messages/incoming_msg.go \
@@ -43,11 +51,20 @@ generate: install-mockgen
 		-source=internal/service/expense_processor/expense_processor.go \
 		-destination=internal/service/expense_processor/mocks/expense_processor_mocks.go
 	${MOCKGEN} \
+		-source=internal/service/report_requester/report_requester.go \
+		-destination=internal/service/report_requester/mocks/report_requester_mocks.go
+	${MOCKGEN} \
 		-source=internal/service/expense_reporter/expense_reporter.go \
 		-destination=internal/service/expense_reporter/mocks/expense_reporter_mocks.go
 	${MOCKGEN} \
 		-source=internal/service/cache/cache.go \
 		-destination=internal/service/cache/mocks/cache_mocks.go
+	${MOCKGEN} \
+		-source=internal/clients/message_broker/client.go \
+		-destination=internal/clients/message_broker/mocks/client_mocks.go
+	${MOCKGEN} \
+		-source=internal/service/report_sender/report_sender.go \
+		-destination=internal/service/report_sender/mocks/report_sender_mocks.go
 
 lint: install-lint
 	${LINTBIN} run
@@ -108,3 +125,31 @@ integration-tests:
 install-ginkgo:
 	go get github.com/onsi/ginkgo/v2/ginkgo
 	go get github.com/onsi/gomega/...
+
+install-protobuf:
+	go install google.golang.org/protobuf/cmd/protoc-gen-go
+	go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
+
+gf:
+	protoc ./api/Reporter.proto \
+		--grpc-gateway_out ./pkg \
+		--grpc-gateway_opt logtostderr=true \
+		--grpc-gateway_opt paths=source_relative \
+		--grpc-gateway_opt generate_unbound_methods=true
+
+generate-grpc: 
+	mkdir -p pkg/reporter_v1
+	protoc --proto_path api/ \
+		--go_out=pkg/reporter_v1 --go_opt=paths=import \
+		--go-grpc_out=pkg/reporter_v1 --go-grpc_opt=paths=import \
+		--grpc-gateway_out ./pkg/reporter_v1 \
+		--grpc-gateway_opt logtostderr=true \
+		--grpc-gateway_opt paths=source_relative \
+		--grpc-gateway_opt generate_unbound_methods=true \
+		--validate_out lang=go:pkg/reporter_v1 \
+		--openapiv2_out ./pkg/reporter_v1 \
+		--openapiv2_opt logtostderr=true \
+		--openapiv2_opt generate_unbound_methods=true \
+		api/Reporter.proto
+	mv pkg/reporter_v1/gitlab.ozon.dev/cranky4/tg-bot/api/* pkg/reporter_v1
+	rm -rf pkg/reporter_v1/gitlab.ozon.dev

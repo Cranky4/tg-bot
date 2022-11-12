@@ -13,6 +13,10 @@ metrics:
   url: "/metrics"
   port: 8080
 
+reporter_metrics:
+  url: "/metrics"
+  port: 8081
+
 cache:
   mode: "memory" # redis
   length: 10 # только для memory кеша
@@ -21,3 +25,15 @@ redis:
   addr: "localhost:6379"
   password: ""
   db: 0
+ 
+message_broker:
+  adapter: "kafka"
+  queue: "tg-bot-reports" # aka topic for kafka
+  addr: "localhost:9093"
+  version: "3.2.0"
+
+grpc:
+  port: 50051
+
+http:
+  port: 50052
